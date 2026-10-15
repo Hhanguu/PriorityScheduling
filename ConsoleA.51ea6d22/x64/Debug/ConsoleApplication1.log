@@ -1,4 +1,0 @@
-﻿  ConsoleApplication1.cpp
-C:\Users\Lenovo\Desktop\Hệ điều hành\ConsoleApplication1\ConsoleApplication1.cpp(39,11): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\Lenovo\Desktop\Hệ điều hành\ConsoleApplication1\ConsoleApplication1.cpp(66,11): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-  ConsoleApplication1.vcxproj -> C:\Users\Lenovo\Desktop\Hệ điều hành\ConsoleApplication1\x64\Debug\ConsoleApplication1.exe
