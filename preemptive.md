@@ -82,20 +82,48 @@ Dữ liệu vào: P1 (AT 0, BT 8, Pri 3), P2 (AT 1, BT 4, Pri 1), P3 (AT 2, BT 2
 
 ## 4. Flow hoạt động
 
-### 4.1. Luồng xử lý thuật toán (Bên trong hàm `schedule`)
-1. Khởi tạo `currentTime = 0`, `completed = 0`. Tạo mảng `remainingBurstTime` bằng `burstTime` ban đầu.
-2. **Vòng lặp (while `completed < n`):**
-   - **Bước 1:** Duyệt tìm tiến trình thỏa mãn `arrivalTime <= currentTime` và `remainingBurstTime > 0`. Ưu tiên `priority` nhỏ nhất -> `arrivalTime` nhỏ nhất -> `pid` nhỏ nhất.
-   - **Bước 2:** Nếu không tìm thấy -> Ghi nhận Gantt là IDLE (`pid = -1`), `currentTime++`. Quay lại Bước 1.
-   - **Bước 3:** Nếu tìm thấy tiến trình `P`:
-     - Nếu `P` chạy lần đầu (`startTime == -1`), gán `startTime = currentTime`.
-     - Ghi nhận vào Gantt (gộp đoạn nếu trùng `pid`).
-     - Giảm `remainingBurstTime` của `P` đi 1. Tăng `currentTime` lên 1.
-   - **Bước 4:** Nếu `remainingBurstTime == 0`:
-     - Tính `completionTime = currentTime`.
-     - Tính `TAT`, `WT`, `RT`.
-     - Thêm vào danh sách kết quả `ProcessResult`. `completed++`.
-3. Kết thúc vòng lặp, trả về `ScheduleResult`.
+### 4.1. Luồng xử lý thuật toán (bên trong hàm `schedule`)
+
+1. **Khởi tạo:** Nhận `vector<Process>`. Khởi tạo `currentTime = 0`, `completed = 0`, mảng `remainingBurstTime` bằng `burstTime` ban đầu, và mảng `startTime` bằng `-1`.
+2. **Vòng lặp (chạy đến khi `completed == n`):**
+   - **Bước 1 - Tìm tiến trình:** Duyệt danh sách, tìm tiến trình thỏa mãn `arrivalTime <= currentTime` và `remainingBurstTime > 0`. Áp dụng quy tắc chọn: Priority nhỏ nhất -> AT nhỏ nhất -> PID nhỏ nhất.
+   - **Bước 2 - Xử lý IDLE:** Nếu không tìm thấy tiến trình nào, ghi nhận Gantt `pid = -1` (IDLE), tăng `currentTime` lên 1 và quay lại Bước 1.
+   - **Bước 3 - Thực thi:** Nếu tìm thấy, ghi nhận `startTime` (nếu chạy lần đầu). Giảm `remainingBurstTime` đi 1, tăng `currentTime` lên 1. Ghi nhận đoạn Gantt (gộp 2 đoạn liền kề nếu trùng PID).
+   - **Bước 4 - Kiểm tra hoàn thành:** Nếu `remainingBurstTime == 0`, tính các chỉ số (CT, TAT, WT, RT) cho tiến trình đó, lưu vào mảng kết quả, tăng `completed` lên 1.
+3. **Kết thúc:** Trả về đối tượng `ScheduleResult` chứa danh sách kết quả và biểu đồ Gantt.
+
+### 4.2. Luồng tổng thể của chương trình
+
+```text
+                  vector<Process> (đã được CsvHandler đọc và kiểm tra)
+                         │
+                         ▼
+            PreemptiveScheduler::schedule()
+                         │
+                         ├──► Khởi tạo mảng remainingBurstTime, currentTime = 0
+                         │
+                         ▼
+            [Vòng lặp: completed < n]
+                         │
+                         ├──► Tìm tiến trình có Priority nhỏ nhất (AT <= currentTime)
+                         │
+                         ├──► Nếu không có: Ghi Gantt IDLE (-1), currentTime++
+                         │
+                         ├──► Nếu có: 
+                         │       - Ghi nhận startTime (lần đầu chạy)
+                         │       - Chạy 1 đơn vị: remainingBurstTime--, currentTime++
+                         │       - Ghi nhận GanttSegment (gộp nếu trùng PID)
+                         │
+                         └──► Nếu remainingBurstTime == 0:
+                                 - Tính CT, TAT, WT, RT
+                                 - Lưu vào ProcessResult, completed++
+                         │
+                         ▼
+                  ScheduleResult (trả về)
+                         │
+       ┌─────────────────┴─────────────────┐
+       ▼                                   ▼
+CSV (writeProcessResults)         UI (vẽ Gantt Chart, hiển thị bảng)
 
 ### 4.2. Cách các thành phần tương tác
 - **CSV → Scheduler:** Truyền `vector<Process>`. Scheduler không cần biết dữ liệu đến từ đâu.
