@@ -95,7 +95,7 @@ Dữ liệu vào: P1 (AT 0, BT 8, Pri 3), P2 (AT 1, BT 4, Pri 1), P3 (AT 2, BT 2
 ### 4.2. Luồng tổng thể của chương trình
 
 ```text
-                  vector<Process> (đã được CsvHandler đọc và kiểm tra)
+                  vector<Process>
                          │
                          ▼
             PreemptiveScheduler::schedule()
