@@ -1,8 +1,7 @@
 # Tài liệu module Non-preemptive Priority Scheduling
 
 **Phần phụ trách:** Lập lịch CPU theo độ ưu tiên không ngắt.  
-**Giai đoạn:** Viết tài liệu thiết kế, chưa lập trình.  
-**Ngôn ngữ dự kiến:** C++ (cần thống nhất với nhóm).
+**Giai đoạn:** Viết tài liệu thiết kế 
 
 ## 1. Module này làm gì?
 
