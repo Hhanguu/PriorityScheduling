@@ -25,3 +25,20 @@
       Process(3, 2, 4, 3)  // P3: AT=2, BT=4, Pri=3
   };
   ScheduleResult result = priorityPreemptive(process_list);
+
+  ## 4. Flow hoạt động (Từ đầu vào đến đầu ra)
+1. Khởi tạo: Nhận danh sách tiến trình. Khởi tạo current_time = 0, completed = 0.
+2. Vòng lặp lập lịch: Chạy cho đến khi tất cả tiến trình hoàn thành.
+   - Bước 1: Duyệt qua tất cả tiến trình, tìm tiến trình thỏa mãn: AT <= current_time và remaining_burst_time > 0.
+   - Bước 2: Nếu không tìm thấy, tăng current_time lên 1 (CPU IDLE) và quay lại Bước 1.
+   - Bước 3: Trong số các tiến trình thỏa mãn, chọn tiến trình có Priority nhỏ nhất. Nếu cùng Priority, chọn tiến trình có AT nhỏ hơn. Nếu vẫn bằng, chọn PID nhỏ hơn.
+   - Bước 4: Ghi nhận start_time nếu là lần đầu chạy. Giảm remaining_burst_time đi 1. Tăng current_time lên 1.
+   - Bước 5: Nếu remaining_burst_time == 0, cập nhật completion_time = current_time, tăng completed lên 1.
+3. Tính toán: Sau khi tất cả hoàn thành, tính TAT, WT, RT cho từng tiến trình và tính trung bình.
+4. Trả về: Đóng gói vào ScheduleResult và trả về.
+
+## 5. Cấu trúc và thiết kế
+- File main.cpp: Chứa hàm main để chạy thử nghiệm và in kết quả ra màn hình.
+- File scheduler.h: Chứa khai báo struct Process, ScheduleResult và prototype các hàm.
+- File scheduler.cpp: Chứa phần triển khai (implementation) các hàm thuật toán.
+- File test_scheduler.cpp: Chứa các bài test độc lập (Unit Test) để kiểm tra tính đúng đắn của từng hàm trước khi tích hợp vào main.
