@@ -182,17 +182,3 @@ Hoặc chạy trực tiếp từng bộ test:
 
 Nhánh git: `feature/csv`, `feature/non-preemptive`, `feature/preemptive`, `feature/gui` → PR vào `main`.
 Mỗi thành viên commit đều đặn hằng tuần và ghi rõ nội dung commit (không để repository im 3 tuần liên tiếp).
-
-## Tiến độ
-
-| Task | Trạng thái |
-|---|---|
-| Quy ước chung (conventions.md) | ✅ |
-| CSV I/O (`CsvHandler`) | ⬜ |
-| Metrics (trung bình, so sánh) | ⬜ |
-| Non-preemptive scheduler | ⬜ |
-| Preemptive scheduler | ⬜ |
-| UI / Gantt / Benchmark | ⬜ |
-| Test cuối (Leader) | ⬜ |
-| Báo cáo 8–12 trang + abstract tiếng Anh | ⬜ |
-| Video demo | ⬜ |
