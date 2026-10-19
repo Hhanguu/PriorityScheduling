@@ -2,7 +2,7 @@
 #pragma once
 
 #include <vector>
-#include "GanttSegment.h"
+#include "core/GanttSegment.h"
 
 struct ProcessResult {
     int pid; //Mã tiến trình//
@@ -18,4 +18,5 @@ struct ScheduleResult {
 
     double averageWaitingTime = 0.0;
     double averageTurnaroundTime = 0.0;
+    double averageResponseTime = 0.0;
 };
