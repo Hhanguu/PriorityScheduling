@@ -106,16 +106,6 @@ build\PriorityScheduling.exe
 build\Debug\PriorityScheduling.exe
 ```
 
-Cửa sổ hiện ra → làm theo **Cách dùng (GUI)** bên dưới.
-
-## Cách dùng (GUI)
-
-1. Chọn file CSV (dùng mẫu `samples/sample.csv` hoặc file của bạn).
-2. Chương trình kiểm tra dữ liệu — nếu file sai sẽ hiện **thông báo lỗi ngay trên cửa sổ** (kèm số dòng).
-3. Chọn chạy **Non-preemptive**, **Preemptive** hoặc cả hai.
-4. Xem **bảng kết quả** (CT, TAT, WT, RT + giá trị trung bình) và **Gantt Chart** trên màn hình.
-5. Bấm xuất kết quả — file được ghi vào `output/`.
-
 ## Dữ liệu đầu vào
 
 File CSV, header cố định `pid,arrival,burst,priority` (ưu tiên: số nhỏ = ưu tiên cao):
@@ -164,11 +154,6 @@ Hoặc chạy trực tiếp từng bộ test:
 - Integration test: `tests/integration/` — pipeline `CSV → 2 scheduler → Metrics → ghi file`.
 - Benchmark: đo thời gian chạy trên `samples/perf_small|medium|large.csv` (20 / 100 / 1000 tiến trình — *sẽ bổ sung ở tuần 6*), số liệu để trong `report/`.
 - Test cuối do Leader nghiệm thu: chạy `samples/sample.csv` qua cả hai thuật toán, đối chiếu `output/` với bảng chuẩn trong `docs/conventions.md`.
-
-## Demo
-
-- Video demo: *(điền link sau khi quay — chạy sample, nhập liệu, kết quả Gantt, ít nhất 1 case kiểm thử)*
-- Nguồn tham khảo: *(liệt kê ≥ 4 nguồn trong báo cáo)*
 
 ## Tài liệu và phân công
 
