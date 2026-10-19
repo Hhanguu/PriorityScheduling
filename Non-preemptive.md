@@ -1,93 +1,234 @@
-# Tài liệu Non-preemptive Priority Scheduling
+# Non-preemptive Priority Scheduling — Tài liệu module
 
-**Phần phụ trách:** Thuật toán lập lịch CPU theo độ ưu tiên **không ngắt**.  
-**Công việc tuần này:** Nghiên cứu và viết tài liệu; chưa yêu cầu triển khai code.
+**Phạm vi:** Module `NonPreemptiveScheduler` trong dự án PriorityScheduling.  
+**Trạng thái:** Tài liệu thiết kế; không khẳng định đã triển khai hoặc kiểm thử.  
+**Căn cứ:** `docs/conventions.md` (quy ước chung của nhóm).
 
-## 1. Chức năng và nhiệm vụ
+## 1. Cấu trúc thư mục
 
-Non-preemptive Priority Scheduling chọn một tiến trình đang sẵn sàng để CPU xử lý. **Khi đã bắt đầu chạy, tiến trình sẽ chạy đến khi hoàn thành**, không bị tiến trình mới đến ngắt giữa chừng.
+Các vị trí **theo quy ước dự án** có liên quan đến module:
 
-Phần này cần:
-- Chọn đúng tiến trình theo quy tắc ưu tiên của đề tài.
-- Xử lý khoảng thời gian CPU không có tiến trình sẵn sàng (**IDLE**).
-- Tính kết quả thời gian của từng tiến trình và các giá trị trung bình.
-- Cung cấp các đoạn thực thi để biểu diễn bằng **Gantt Chart**.
+```text
+PriorityScheduling/
+├── src/
+│   └── core/
+│       ├── Process.h
+│       ├── GanttSegment.h
+│       ├── ScheduleResult.h
+│       ├── NonPreemptiveScheduler.h
+│       ├── NonPreemptiveScheduler.cpp
+│       ├── Metrics.h
+│       └── Metrics.cpp
+├── tests/
+│   └── unit/                 # Test độc lập từng module
+├── samples/
+│   └── sample.csv            # Bộ dữ liệu mẫu dùng chung
+├── output/                   # Kết quả xuất CSV
+└── docs/
+    ├── conventions.md
+    └── NonPreemptive.md
+```
 
-## 2. Quy tắc lập lịch
+Đây là đường dẫn đã quy định trong `conventions.md`, **không phải xác nhận rằng toàn bộ file đã tồn tại trên `main`**.
 
-Tại mỗi thời điểm CPU rảnh, chỉ xét các tiến trình **đã đến và chưa hoàn thành**.
+## 2. Kiểu dữ liệu dùng chung
 
-1. **Priority có giá trị nhỏ hơn thì độ ưu tiên cao hơn.**
-2. Nếu Priority bằng nhau, chọn tiến trình có **Arrival Time (AT) nhỏ hơn**.
-3. Nếu Priority và AT cùng bằng nhau, chọn theo **thứ tự nhập ban đầu**.
-4. Tiến trình đã được chọn sẽ chạy hết **Burst Time (BT)**, không bị ngắt.
-5. Nếu không có tiến trình sẵn sàng, CPU ở trạng thái **IDLE** cho đến khi có tiến trình đến.
+Module **dùng nguyên các kiểu chung**; không tự thêm trường hay đổi kiểu dữ liệu.
 
-**Starvation:** Tiến trình có độ ưu tiên thấp có thể phải chờ lâu khi các tiến trình ưu tiên cao liên tục được chọn. Đây là hạn chế cần nêu trong phần phân tích thuật toán; đề bài hiện chưa bắt buộc cài đặt cơ chế khắc phục.
+| Kiểu | Trường | Vai trò |
+|---|---|---|
+| `Process` | `int pid`, `long long arrivalTime`, `long long burstTime`, `int priority` | Dữ liệu tiến trình đầu vào |
+| `GanttSegment` | `int pid`, `long long startTime`, `long long endTime` | Một khoảng thời gian CPU chạy tiến trình hoặc IDLE |
+| `ProcessResult` | `int pid`, `long long completionTime`, `long long turnaroundTime`, `long long waitingTime`, `long long responseTime` | Kết quả của từng tiến trình |
+| `ScheduleResult` | `processes`, `gantt`, `averageWaitingTime`, `averageTurnaroundTime`, `averageResponseTime` | Kết quả lập lịch tổng hợp |
 
-## 3. Đầu vào, đầu ra và cách sử dụng
+- `pid > 0` và không trùng; `arrivalTime >= 0`; `burstTime > 0`.
+- `pid = -1` trong `GanttSegment` biểu thị **IDLE**.
+- Thứ tự nhập được giữ bằng **vị trí phần tử trong `std::vector<Process>`**, **không có trường `inputOrder`**.
+- Các thời gian dùng `long long`; các giá trị trung bình dùng `double`.
 
-**Đầu vào:** Danh sách tiến trình `Process`, trong đó thông tin cần thiết cho thuật toán gồm:
+## 3. Quy tắc lập lịch Non-preemptive
 
-| Thông tin | Ý nghĩa |
+**Non-preemptive** nghĩa là khi CPU đã chọn một tiến trình, nó chạy liên tục **hết `burstTime`**, không bị tiến trình mới đến ngắt.
+
+Ở mỗi lần CPU rảnh, chỉ xét các tiến trình đã đến (`arrivalTime <= thời điểm hiện tại`) và chưa chạy xong. Chọn theo thứ tự:
+
+1. `priority` **nhỏ hơn** được ưu tiên hơn.
+2. Nếu cùng `priority`, chọn `arrivalTime` **nhỏ hơn**.
+3. Nếu vẫn hòa, chọn tiến trình xuất hiện **trước trong vector đầu vào** (thứ tự dòng CSV).
+4. Nếu chưa có tiến trình sẵn sàng, ghi đoạn **IDLE** đến thời điểm đến gần nhất.
+
+Mô hình **không có I/O, không tính chi phí chuyển ngữ cảnh**. *Starvation/aging nằm ngoài phạm vi, không cài đặt* theo quy ước nhóm.
+
+**Luồng xử lý:**
+
+```text
+Nhận vector<Process>
+        |
+        v
+Thời gian hiện tại = 0; chưa tiến trình nào hoàn thành
+        |
+        v
+Còn tiến trình chưa xử lý? -- Không --> Trả ScheduleResult
+        |
+       Có
+        v
+Có tiến trình đã đến? -- Không --> Ghi IDLE; nhảy đến AT gần nhất --+
+        |                                                            |
+       Có                                                            |
+        v                                                            |
+Chọn theo priority → arrivalTime → vị trí trong vector               |
+        |                                                            |
+        v                                                            |
+Chạy hết burstTime (không ngắt)                                      |
+        |                                                            |
+        v                                                            |
+Lưu ProcessResult và GanttSegment; cập nhật thời gian ----------------+
+```
+
+## 4. Giao diện scheduler (API)
+
+Theo `conventions.md`, scheduler có **một class và một hàm public duy nhất**:
+
+```cpp
+// src/core/NonPreemptiveScheduler.h
+class NonPreemptiveScheduler {
+public:
+    static ScheduleResult schedule(const std::vector<Process>& processes);
+};
+```
+
+**Cách gọi (minh họa cách sử dụng API, không phải code đã triển khai):**
+
+```cpp
+std::vector<Process> processes = {
+    {1, 0, 5, 3},
+    {2, 1, 3, 1},
+    {3, 2, 2, 2},
+    {4, 4, 4, 1}
+};
+ScheduleResult result = NonPreemptiveScheduler::schedule(processes);
+```
+
+Hàm chỉ nhận `vector<Process>` và trả `ScheduleResult`: **không đọc/ghi CSV, không phụ thuộc Qt, không vẽ giao diện**.
+
+## 5. File CSV đầu vào
+
+CSV do `CsvHandler` đọc, sau đó truyền danh sách `Process` cho scheduler. Header chuẩn:
+
+```csv
+pid,arrival,burst,priority
+```
+
+- `pid`: số nguyên dương, duy nhất.
+- `arrival`: số nguyên không âm; `burst`: số nguyên dương; `priority`: số nguyên.
+- Giữ nguyên thứ tự dòng CSV khi tạo vector để xử lý hòa.
+- `CsvHandler` chịu trách nhiệm kiểm tra dữ liệu, xử lý lỗi và báo lỗi tiếng Việt kèm số dòng. Scheduler **không** xử lý việc đọc CSV.
+
+## 6. Phân vai tính toán và kết quả
+
+**`NonPreemptiveScheduler` phụ trách:** chọn tiến trình, xác định thứ tự chạy, tạo `gantt` và `ProcessResult` cho từng tiến trình.
+
+Các công thức của mỗi tiến trình:
+
+| Ký hiệu | Ý nghĩa | Công thức |
+|---|---|---|
+| `AT` | Thời điểm đến | `arrivalTime` |
+| `BT` | Thời gian xử lý | `burstTime` |
+| `ST` | Lần đầu được chạy | Dùng để tính RT, không là trường của `ProcessResult` |
+| `CT` | Thời điểm hoàn thành | Thời điểm kết thúc chạy |
+| `TAT` | Thời gian quay vòng | `CT - AT` |
+| `WT` | Thời gian chờ | `TAT - BT` |
+| `RT` | Thời gian phản hồi | `ST - AT` |
+
+Trong mô hình không ngắt, không có I/O: **WT = RT**.
+
+**`Metrics` phụ trách:** tính ba trung bình `averageWaitingTime`, `averageTurnaroundTime`, `averageResponseTime` và số liệu so sánh hai thuật toán. Scheduler không tự triển khai lại các phép tính trung bình.
+
+**Ví dụ minh họa thuật toán** (bộ dữ liệu giải thích, **không khẳng định là nội dung `samples/sample.csv`**):
+
+| PID | AT | BT | Priority |
+|---:|---:|---:|---:|
+| 1 | 0 | 5 | 3 |
+| 2 | 1 | 3 | 1 |
+| 3 | 2 | 2 | 2 |
+| 4 | 4 | 4 | 1 |
+
+Tại `t = 0` chỉ có P1, nên P1 chạy hết từ 0 đến 5. Đến `t = 5`, P2 và P4 cùng priority 1, P2 đến trước nên chạy trước. Sau đó là P4 và P3.
+
+```text
+0       5       8        12    14
+|  P1   |  P2   |   P4   | P3 |
+```
+
+| PID | CT | TAT | WT | RT |
+|---:|---:|---:|---:|---:|
+| 1 | 5 | 5 | 0 | 0 |
+| 2 | 8 | 7 | 4 | 4 |
+| 3 | 14 | 12 | 10 | 10 |
+| 4 | 12 | 8 | 4 | 4 |
+
+Kết quả trung bình từ các dòng trên (do `Metrics` tính): **WT = 4,50**, **TAT = 8,00**, **RT = 4,50**.
+
+## 7. File CSV đầu ra
+
+`CsvHandler` xuất dữ liệu nhận được, **không tính toán lại**. Các file liên quan tới Non-preemptive:
+
+| File | Nội dung |
 |---|---|
-| Mã tiến trình | Phân biệt từng tiến trình |
-| AT (Arrival Time) | Thời điểm tiến trình đến |
-| BT (Burst Time) | Tổng thời gian CPU cần để xử lý |
-| Priority | Mức ưu tiên của tiến trình |
-| Thứ tự nhập | Dùng để phân xử nếu Priority và AT đều bằng nhau |
+| `output/np_result.csv` | Kết quả từng tiến trình |
+| `output/np_gantt.csv` | Các đoạn Gantt |
+| `output/comparison.csv` | So sánh trung bình NP và P (do phần tích hợp cung cấp) |
 
-**Cách sử dụng ở mức module:** Chương trình chung cung cấp danh sách `Process` cho thuật toán Non-preemptive; thuật toán trả về `ScheduleResult`. **Tên hàm, đường dẫn file và cú pháp gọi cụ thể cần lấy từ mã nguồn chung của nhóm**, chưa được xác nhận nên không ghi cố định ở đây.
+Định dạng kết quả:
 
-**Đầu ra:** Cấu trúc dùng chung `ScheduleResult`, bao gồm:
-- Kết quả của từng tiến trình.
-- Các đoạn trên Gantt Chart, gồm tiến trình chạy (hoặc IDLE), thời điểm bắt đầu và kết thúc.
-- Các chỉ số thời gian trung bình.
+```csv
+pid,CT,TAT,WT,RT
+```
 
-### Công thức tính
+Định dạng Gantt:
 
-| Ký hiệu | Ý nghĩa / cách tính |
-|---|---|
-| AT | Arrival Time — thời điểm đến |
-| BT | Burst Time — thời gian CPU cần |
-| ST | Start Time — thời điểm được chạy lần đầu |
-| CT | Completion Time — thời điểm hoàn thành |
-| TAT | Turnaround Time = CT − AT |
-| WT | Waiting Time = TAT − BT |
-| RT | Response Time = ST − AT |
+```csv
+pid,start,end
+```
 
-Các chỉ số trung bình được tính bằng tổng chỉ số của các tiến trình chia cho số tiến trình (với danh sách không rỗng).
+Ghi `pid = -1` cho IDLE. Các đoạn Gantt liền kề cùng `pid` cần được gộp trước khi ghi hoặc hiển thị. File so sánh có header `metric,np,p`, một dòng cho mỗi trung bình và hiển thị hai chữ số thập phân.
 
-## 4. Luồng xử lý (Flow)
+## 8. Kiểm thử module
 
-1. Nhận danh sách tiến trình và bắt đầu tại thời điểm mô phỏng `t = 0`.
-2. Tìm các tiến trình có `AT ≤ t` và chưa hoàn thành.
-3. Nếu **không có** tiến trình sẵn sàng: ghi đoạn **IDLE**, chuyển `t` đến thời điểm đến gần nhất của tiến trình chưa chạy.
-4. Nếu **có** tiến trình sẵn sàng: chọn theo **Priority → AT → thứ tự nhập**.
-5. Cho tiến trình được chọn chạy **liên tục đến khi hoàn thành**.
-6. Ghi đoạn Gantt, cập nhật thời gian và tính **CT, TAT, WT, RT**.
-7. Lặp lại bước 2 đến khi mọi tiến trình hoàn thành.
-8. Tính các giá trị trung bình và trả kết quả.
+Theo quy ước nhóm, sử dụng **doctest** tại `tests/third_party/doctest.h`; test độc lập đặt ở `tests/unit/<module>_test.cpp`, không cần Qt hay scheduler khác. Test phải đạt trước khi mở Pull Request.
 
-## 5. Cấu trúc và thiết kế
+Các trường hợp cần kiểm tra cho Non-preemptive:
 
-Theo quy định chung của đề tài:
+1. Một tiến trình duy nhất.
+2. Có tiến trình ưu tiên cao đến khi CPU đang bận, nhưng tiến trình đang chạy **không bị ngắt**.
+3. Cùng priority: ưu tiên AT nhỏ hơn; cùng cả hai: giữ thứ tự vector.
+4. IDLE lúc ban đầu hoặc giữa các tiến trình.
+5. Các đoạn Gantt và CT/TAT/WT/RT đúng; so sánh **expected** với **actual**.
 
-- **`Process`**: Cấu trúc dữ liệu đầu vào được **cả Non-preemptive và Preemptive sử dụng chung**.
-- **`ScheduleResult`**: Cấu trúc đầu ra chung, lưu kết quả từng tiến trình, các đoạn Gantt và các giá trị trung bình.
-- **Module Non-preemptive**: Nhận dữ liệu `Process`, áp dụng quy tắc không ngắt và tạo `ScheduleResult`.
-- **Thành phần hiển thị/so sánh**: Sử dụng kết quả được trả về; không phải nhiệm vụ xử lý lập lịch của module này.
+**Trạng thái tài liệu:** Đây là danh sách test cần thực hiện sau, chưa tuyên bố test đã chạy.
 
-**Không liệt kê cấu trúc thư mục, tên file, class hoặc chữ ký hàm chưa được kiểm chứng từ repository của nhóm.** Khi nhóm xác nhận các thành phần này, bổ sung đường dẫn và giao diện hàm thực tế vào tài liệu.
+## 9. Giao diện hiển thị (UI)
 
-## 6. Kiểm thử cần chuẩn bị
+Module không tự vẽ UI. Phần `ui/` sẽ nhận `ScheduleResult` để:
 
-Trước khi tạo Pull Request (PR) vào `main`, module cần được kiểm thử độc lập với các trường hợp:
+- Hiển thị PID số nguyên `1` thành `P1`; `-1` thành `IDLE`.
+- Hiển thị bảng `CT/TAT/WT/RT`, các giá trị trung bình và Gantt Chart.
+- Cho phép người dùng chạy thuật toán và xuất kết quả bằng phần chức năng tích hợp.
 
-- Chỉ có một tiến trình.
-- Tiến trình ưu tiên cao đến khi CPU đang bận nhưng **không được ngắt** tiến trình đang chạy.
-- Nhiều tiến trình cùng Priority: xét AT rồi xét thứ tự nhập.
-- CPU có khoảng **IDLE**.
-- Kết quả **CT, TAT, WT, RT**, các đoạn Gantt và giá trị trung bình được tính đúng.
+## 10. Benchmark hiệu năng
 
-**Trạng thái hiện tại:** Tài liệu nghiên cứu và thiết kế; chưa khẳng định đã có code hay test hoàn thành.
+Module Non-preemptive được phần `benchmark/` gọi với các bộ dữ liệu chuẩn của nhóm:
+
+| File | Số tiến trình |
+|---|---:|
+| `samples/sample.csv` | 3 |
+| `samples/perf_small.csv` | 20 |
+| `samples/perf_medium.csv` | 100 |
+| `samples/perf_large.csv` | 1000 |
+
+`benchmark/` đo thời gian chạy scheduler (ms); `Metrics` cung cấp WT/TAT/RT trung bình. Kết quả benchmark được lưu ở `report/` theo quy ước, không trộn với `output/` của chương trình.
+
+---
+
+**Tóm tắt trách nhiệm:** Người làm Non-preemptive tập trung vào `NonPreemptiveScheduler` (xếp lịch, `ProcessResult`, `gantt`) và test độc lập. Đọc CSV, tính trung bình, vẽ UI, xuất file và benchmark thuộc các module được phân công riêng.
