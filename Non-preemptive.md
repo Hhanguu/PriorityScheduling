@@ -6,8 +6,6 @@
 
 ## 1. Cấu trúc thư mục
 
-Các vị trí **theo quy ước dự án** có liên quan đến module:
-
 ```text
 PriorityScheduling/
 ├── src/
@@ -28,13 +26,7 @@ PriorityScheduling/
     ├── conventions.md
     └── NonPreemptive.md
 ```
-
-Đây là đường dẫn đã quy định trong `conventions.md`, **không phải xác nhận rằng toàn bộ file đã tồn tại trên `main`**.
-
 ## 2. Kiểu dữ liệu dùng chung
-
-Module **dùng nguyên các kiểu chung**; không tự thêm trường hay đổi kiểu dữ liệu.
-
 | Kiểu | Trường | Vai trò |
 |---|---|---|
 | `Process` | `int pid`, `long long arrivalTime`, `long long burstTime`, `int priority` | Dữ liệu tiến trình đầu vào |
@@ -87,8 +79,7 @@ Lưu ProcessResult và GanttSegment; cập nhật thời gian ----------------+
 ```
 
 ## 4. Giao diện scheduler (API)
-
-Theo `conventions.md`, scheduler có **một class và một hàm public duy nhất**:
+Scheduler có **một class và một hàm public duy nhất**:
 
 ```cpp
 // src/core/NonPreemptiveScheduler.h
@@ -196,17 +187,17 @@ Ghi `pid = -1` cho IDLE. Các đoạn Gantt liền kề cùng `pid` cần đư�
 
 ## 8. Kiểm thử module
 
-Theo quy ước nhóm, sử dụng **doctest** tại `tests/third_party/doctest.h`; test độc lập đặt ở `tests/unit/<module>_test.cpp`, không cần Qt hay scheduler khác. Test phải đạt trước khi mở Pull Request.
+Sau khi hoàn thành code, mình sẽ kiểm tra lại module Non-preemptive để đảm bảo thuật toán chạy đúng theo yêu cầu.
 
-Các trường hợp cần kiểm tra cho Non-preemptive:
+Một số trường hợp cần kiểm tra:
 
-1. Một tiến trình duy nhất.
-2. Có tiến trình ưu tiên cao đến khi CPU đang bận, nhưng tiến trình đang chạy **không bị ngắt**.
-3. Cùng priority: ưu tiên AT nhỏ hơn; cùng cả hai: giữ thứ tự vector.
-4. IDLE lúc ban đầu hoặc giữa các tiến trình.
-5. Các đoạn Gantt và CT/TAT/WT/RT đúng; so sánh **expected** với **actual**.
+- Kiểm tra khi chỉ có một tiến trình.
+- Kiểm tra tiến trình đang chạy có bị ngắt khi tiến trình ưu tiên cao hơn xuất hiện hay không.
+- Kiểm tra thứ tự chạy khi các tiến trình có cùng độ ưu tiên.
+- Kiểm tra trạng thái IDLE khi CPU chưa có tiến trình để chạy.
+- Kiểm tra kết quả tính toán CT, TAT, WT, RT và Gantt Chart có chính xác không.
 
-**Trạng thái tài liệu:** Đây là danh sách test cần thực hiện sau, chưa tuyên bố test đã chạy.
+Phần kiểm thử sẽ sử dụng **doctest** theo quy định chung của nhóm và được thực hiện sau khi viết xong thuật toán.
 
 ## 9. Giao diện hiển thị (UI)
 
