@@ -28,12 +28,12 @@ src/
   io/         CsvHandler — đọc/ghi CSV
   ui/         MainWindow, GanttChart (Qt)
   benchmark/  đo hiệu năng hai thuật toán
-samples/      dữ liệu mẫu chuẩn + bộ data benchmark
+samples/      dữ liệu mẫu chuẩn (10 và 20 process) + bộ data benchmark
 input/        dữ liệu đầu vào
 output/       kết quả ghi ra
 report/       số liệu benchmark, tài liệu báo cáo
 tests/        unit/ , integration/, third_party/ (doctest)
-docs/         conventions.md + tài liệu từng module + plan
+docs/         api.md + conventions.md + test-cases/ + tài liệu module
 ```
 
 Quy ước chung của nhóm: [docs/conventions.md](docs/conventions.md)
@@ -112,9 +112,9 @@ File CSV, header cố định `pid,arrival,burst,priority` (ưu tiên: số nh�
 
 ```
 pid,arrival,burst,priority
-1,0,8,3
-2,1,4,1
-3,2,2,2
+1,0,5,3
+2,1,3,2
+3,2,8,1
 ```
 
 Thứ tự dòng quyết định khi các tiến trình hòa điểm — chương trình không sắp xếp lại dữ liệu.
@@ -150,20 +150,23 @@ Hoặc chạy trực tiếp từng bộ test:
 ```
 
 - Framework: **doctest** (`tests/third_party/doctest.h`), mỗi bộ test có `doctest_main.cpp` riêng.
-- Unit test: `tests/unit/` — expected vs actual cho case bình thường, IDLE, hòa điểm, preemption, input lỗi.
+- Unit test: `tests/unit/<thành viên>/` — expected vs actual cho case bình thường, IDLE, hòa điểm, preemption, input lỗi.
 - Integration test: `tests/integration/` — pipeline `CSV → 2 scheduler → Metrics → ghi file`.
-- Benchmark: đo thời gian chạy trên `samples/perf_small|medium|large.csv` (20 / 100 / 1000 tiến trình — *sẽ bổ sung ở tuần 6*), số liệu để trong `report/`.
+- Benchmark: dãy 1 → 10 → 50 → 100 → 150 → 200 → 500 → 1.000 → 5.000 → 10.000 → 50.000 → 100.000 → 500.000 → 1.000.000 tiến trình, sinh bằng `./build/generate_perf`, số liệu trong `report/`.
 - Test cuối do Leader nghiệm thu: chạy `samples/sample.csv` qua cả hai thuật toán, đối chiếu `output/` với bảng chuẩn trong `docs/conventions.md`.
 
 ## Tài liệu và phân công
 
 | Tài liệu | Nội dung |
 |---|---|
+| [docs/api.md](docs/api.md) | Hợp đồng API v1.0 + bảng kết quả chuẩn |
 | [docs/conventions.md](docs/conventions.md) | Quy ước chung — pháp nhân: Leader |
-| [docs/plan.md](docs/plan.md) | Kế hoạch 8 tuần, giai đoạn và nghiệm thu |
-| [docs/csv-handler.md](docs/csv-handler.md) | Module CSV I/O *(bản nháp, cần sửa theo conventions)* |
-| [docs/NonPreemptive.md](docs/NonPreemptive.md) | Thuật toán non-preemptive *(bản nháp, cần sửa theo conventions)* |
-| docs/Preemptive.md | Thuật toán preemptive *(tuần 2)* |
+| [docs/test-cases/](docs/test-cases/) | Bộ test case chia theo thành viên |
+| docs/plan.md | Kế hoạch 8 tuần *(chưa tạo)* |
+| docs/csv-handler.md | Module CSV I/O *(chưa tạo)* |
+| docs/NonPreemptive.md | Thuật toán non-preemptive *(chưa tạo)* |
+| docs/Preemptive.md | Thuật toán preemptive *(chưa tạo)* |
+| docs/GUI.md | Giao diện Qt *(chưa tạo)* |
 
 Nhánh git: `feature/csv`, `feature/non-preemptive`, `feature/preemptive`, `feature/gui` → PR vào `main`.
 Mỗi thành viên commit đều đặn hằng tuần và ghi rõ nội dung commit (không để repository im 3 tuần liên tiếp).
