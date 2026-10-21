@@ -1,9 +1,8 @@
-
 #pragma once
 
 struct Process {
-    int pid;  //Mã tiến trình//
-    int arrivalTime; //Thời điểm tiến trình đến (AT)//
-    long long burstTime; //Thời gian CPU cần chạy (BT)//
-    int priority; //Độ ưu tiên, số càng nhỏ càng ưu tiên //
-    };
+    int pid;                 // > 0, duy nhất
+    long long arrivalTime;   // AT >= 0
+    long long burstTime;     // BT > 0
+    int priority;            // số nhỏ = ưu tiên cao
+};

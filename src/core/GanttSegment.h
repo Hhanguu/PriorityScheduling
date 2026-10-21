@@ -1,8 +1,7 @@
-
 #pragma once
 
 struct GanttSegment {
-    int pid; //Tiến trình đang chiếm CPU//
-    long long startTime; //Thời điểm bắt đầu chạy//
-    long long endTime; //Thời điểm kết thúc đoạn chạy//
+    int pid;                 // -1 = IDLE
+    long long startTime;
+    long long endTime;       // endTime > startTime
 };
