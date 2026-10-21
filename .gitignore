@@ -24,3 +24,6 @@ compile_commands.json
 *.user.*
 CMakeUserPresets.json
 build-*/
+
+# Benchmark data (generated)
+samples/perf_*.csv

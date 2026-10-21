@@ -59,6 +59,13 @@ target_link_libraries(PriorityScheduling PRIVATE ps_core Qt6::Widgets)
 target_compile_options(PriorityScheduling PRIVATE ${PS_WARNINGS})
 
 # ---------------------------------------------------------------------------
+# Sinh dữ liệu benchmark: ./build/generate_perf [--out samples] [--sizes ...]
+# ---------------------------------------------------------------------------
+add_executable(generate_perf tools/generate_perf.cpp)
+target_compile_options(generate_perf PRIVATE ${PS_WARNINGS})
+set_target_properties(generate_perf PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+
+# ---------------------------------------------------------------------------
 # Kiểm thử (tự nhận file mới, không cần sửa CMake khi thêm test)
 # ---------------------------------------------------------------------------
 option(BUILD_TESTING "Build unit tests" ON)
@@ -66,10 +73,12 @@ option(BUILD_TESTING "Build unit tests" ON)
 if(BUILD_TESTING)
     enable_testing()
 
-    file(GLOB UNIT_TEST_SOURCES CONFIGURE_DEPENDS tests/unit/*.cpp)
+    file(GLOB_RECURSE UNIT_TEST_SOURCES CONFIGURE_DEPENDS tests/unit/*.cpp)
     add_executable(unit_tests ${UNIT_TEST_SOURCES})
     target_link_libraries(unit_tests PRIVATE ps_core)
     target_include_directories(unit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/third_party)
+    target_compile_definitions(unit_tests PRIVATE
+        PS_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     target_compile_options(unit_tests PRIVATE ${PS_WARNINGS})
     set_target_properties(unit_tests PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
     add_test(NAME unit_tests COMMAND unit_tests)
@@ -79,6 +88,8 @@ if(BUILD_TESTING)
         add_executable(integration_tests ${INTEGRATION_TEST_SOURCES})
         target_link_libraries(integration_tests PRIVATE ps_core)
         target_include_directories(integration_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/third_party)
+        target_compile_definitions(integration_tests PRIVATE
+            PS_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
         target_compile_options(integration_tests PRIVATE ${PS_WARNINGS})
         set_target_properties(integration_tests PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
         add_test(NAME integration_tests COMMAND integration_tests)
