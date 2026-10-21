@@ -1,8 +1,16 @@
+<<<<<<< HEAD
 ﻿.vs/
+=======
+.vs/
+>>>>>>> main
 out/
 build/
 x64/
 Debug/
 *.sln
+<<<<<<< HEAD
 *.vcxproj*
 *.user
+=======
+*.vcxproj*
+>>>>>>> main
