@@ -4,8 +4,6 @@
 #include <numeric>
 #include <queue>
 
-#include "core/Metrics.h"
-
 ScheduleResult NonPreemptiveScheduler::schedule(const std::vector<Process>& processes) {
     ScheduleResult result;
     result.processes.resize(processes.size());
@@ -48,6 +46,6 @@ ScheduleResult NonPreemptiveScheduler::schedule(const std::vector<Process>& proc
                                    turnaround - process.burstTime,
                                    start - process.arrivalTime};
     }
-    Metrics::fillAverages(result);
+
     return result;
 }

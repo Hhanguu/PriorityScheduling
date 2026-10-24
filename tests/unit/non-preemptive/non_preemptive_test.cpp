@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "core/NonPreemptiveScheduler.h"
+#include "core/Metrics.h"
 
 namespace {
 std::vector<std::vector<long long>> readRows(const std::string& relative) {
@@ -56,7 +57,7 @@ TEST_CASE("NP empty and single process") {
     CHECK(single.processes[0].turnaroundTime == 3);
     CHECK(single.processes[0].waitingTime == 0);
     CHECK(single.processes[0].responseTime == 0);
-    CHECK(single.averageTurnaroundTime == 3.0);
+    CHECK(single.averageTurnaroundTime == 0.0);
 }
 
 TEST_CASE("NP tie uses arrival then vector position rather than pid") {
@@ -94,7 +95,7 @@ TEST_CASE("NP actual metrics and Gantt match expected CSV fixtures") {
     for (const std::string name : {"sample", "sample_20"}) {
         CAPTURE(name);
         const auto processes = input(name);
-        const auto actual = NonPreemptiveScheduler::schedule(processes);
+        auto actual = NonPreemptiveScheduler::schedule(processes);
         const auto expected = readRows("ket_qua/non-preemptive/" + name + "_np_result.csv");
         REQUIRE(actual.processes.size() == expected.size());
         double waiting = 0, turnaround = 0, response = 0;
@@ -112,6 +113,10 @@ TEST_CASE("NP actual metrics and Gantt match expected CSV fixtures") {
             turnaround += expected[i][2];
             response += expected[i][4];
         }
+        CHECK(actual.averageWaitingTime == 0.0);
+        CHECK(actual.averageTurnaroundTime == 0.0);
+        CHECK(actual.averageResponseTime == 0.0);
+        Metrics::fillAverages(actual);
         CHECK(actual.averageWaitingTime == doctest::Approx(waiting / expected.size()));
         CHECK(actual.averageTurnaroundTime == doctest::Approx(turnaround / expected.size()));
         CHECK(actual.averageResponseTime == doctest::Approx(response / expected.size()));
@@ -135,4 +140,22 @@ TEST_CASE("NP unsorted input is preserved and long long times are retained") {
     const auto large = NonPreemptiveScheduler::schedule({{1, 3000000000LL, 4000000000LL, 1}});
     CHECK(large.processes[0].completionTime == 7000000000LL);
     CHECK(large.processes[0].turnaroundTime == 4000000000LL);
+}
+
+TEST_CASE("NP leaves averages zero for Metrics to fill after scheduling") {
+    for (const std::string name : {"sample", "sample_20", "tie_same_arrival", "tie_arrival",
+                                   "priority_order", "np_no_preempt", "idle_start",
+                                   "idle_middle", "unsorted_arrival", "np_large_100",
+                                   "np_large_1000"}) {
+        CAPTURE(name);
+        const auto processes = input(name);
+        auto actual = NonPreemptiveScheduler::schedule(processes);
+        REQUIRE(actual.processes.size() == processes.size());
+        CHECK(actual.averageWaitingTime == 0.0);
+        CHECK(actual.averageTurnaroundTime == 0.0);
+        CHECK(actual.averageResponseTime == 0.0);
+        Metrics::fillAverages(actual);
+        CHECK(actual.averageTurnaroundTime > 0.0);
+        CHECK(actual.averageWaitingTime == doctest::Approx(actual.averageResponseTime));
+    }
 }
