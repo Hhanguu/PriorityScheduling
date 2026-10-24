@@ -1,10 +1,12 @@
-#include "ui/MainWindow.h"
-#include "core/Process.h"
-#include "core/ScheduleResult.h"
-#include "core/NonPreemptiveScheduler.h"
-#include "core/PreemptiveScheduler.h"
-#include "core/Metrics.h"
-#include "io/CsvHandler.h"
+#include "MainWindow.h"
+#include "GanttChart.h"
+
+#include "../core/Process.h"
+#include "../core/NonPreemptiveScheduler.h"
+#include "../core/PreemptiveScheduler.h"
+#include "../core/SchedulerResult.h"
+#include "../core/Metrics.h"
+#include "../io/CsvHandler.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>

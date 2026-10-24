@@ -1,16 +1,24 @@
 #pragma once
 #include <QWidget>
-#include <vector>
-#include "core/GanttSegment.h"
+#include <QVector>
+#include <QString>
+
+struct GanttBlock {
+    int processId;
+    int startTime;
+    int endTime;
+    QString colorHex;
+};
 
 class GanttChart : public QWidget {
     Q_OBJECT
 public:
     explicit GanttChart(QWidget *parent = nullptr);
-    void setData(const std::vector<GanttSegment>& segments); 
+    void setScheduleData(const QVector<GanttBlock> &blocks);
+
 protected:
     void paintEvent(QPaintEvent *event) override;
 
 private:
-    std::vector<GanttSegment> segments;
+    QVector<GanttBlock> m_blocks; 
 };
