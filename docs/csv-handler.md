@@ -1,6 +1,6 @@
 # TÀI LIỆU MODULE CSV – PRIORITY SCHEDULING
 
-Nhánh: `feature/csv` · File phụ trách: `src/io/CsvHandler.h`, `src/io/CsvHandler.cpp` · Test: `tests/unit/csv_handler_test.cpp`
+Nhánh: `feature/csv` · File phụ trách: `src/io/CsvHandler.h`, `src/io/CsvHandler.cpp` · Test: `tests/unit/csv/csv_handler_test.cpp`
 
 ## 1. Nghiên cứu về phần mình đảm nhiệm
 
@@ -95,17 +95,17 @@ struct ScheduleResult {
 
 1. **Đọc tiến trình** (`readProcesses`): đọc `input/*.csv` hoặc `samples/*.csv`, kiểm tra, trả về danh sách `Process` theo đúng thứ tự dòng.
 2. **Ghi kết quả từng tiến trình** (`writeProcessResults`): ghi `pid, CT, TAT, WT, RT`.
-3. **Ghi các đoạn Gantt** (`writeGantt`): ghi `pid, start, end`, gộp các đoạn liền nhau cùng `pid` (kể cả IDLE).
+3. **Ghi các đoạn Gantt** (`writeGantt`): ghi `pid, start, end` đúng như nhận được (scheduler đã gộp sẵn các đoạn liền kề cùng `pid`, kể cả IDLE).
 4. **Ghi bảng so sánh** (`writeComparison`): ghi `metric, np, p`, làm tròn 2 chữ số thập phân.
 5. **Báo lỗi rõ ràng**: mọi lỗi bằng tiếng Việt, kèm số dòng, trả qua tham số `error` để GUI hiển thị.
 
 ## 3. Hướng dẫn sử dụng
 
-> Lưu ý: định dạng file, cách báo lỗi và kiểu dữ liệu đã thống nhất theo quy ước nhóm. Tên hàm và chữ ký cụ thể của `CsvHandler` là **đề xuất**, chờ nhóm xác nhận (mục 5.4).
+> Lưu ý: định dạng file, cách báo lỗi, kiểu dữ liệu, tên hàm và chữ ký của `CsvHandler` đã thống nhất và cố định theo `docs/api.md` (FROZEN). Các ví dụ dưới đây dùng bộ dữ liệu rút gọn 3 tiến trình để dễ đọc; bộ dữ liệu chuẩn của nhóm là `samples/sample.csv` (10 tiến trình).
 
 ### 3.1. Định dạng file CSV đầu vào
 
-Header chính thức, một dòng, phân cách bằng dấu phẩy, mỗi dòng một tiến trình. File mẫu: `samples/sample.csv`.
+Header chính thức, một dòng, phân cách bằng dấu phẩy, mỗi dòng một tiến trình. Ví dụ rút gọn (file chuẩn đầy đủ: `samples/sample.csv`, 10 tiến trình):
 
 ```
 pid,arrival,burst,priority
@@ -205,7 +205,7 @@ avg_RT,5.67,1.00
 
 ### 3.5. Ví dụ minh họa đầy đủ
 
-Dữ liệu vào `samples/sample.csv`: P1 (AT 0, BT 8, Pri 3), P2 (AT 1, BT 4, Pri 1), P3 (AT 2, BT 2, Pri 2).
+Dữ liệu vào (ví dụ rút gọn): P1 (AT 0, BT 8, Pri 3), P2 (AT 1, BT 4, Pri 1), P3 (AT 2, BT 2, Pri 2).
 
 - Non-preemptive: P1 chạy 0–8, P2 8–12, P3 12–14.
 - Preemptive: P1 chạy 0–1, P2 1–5, P3 5–7, P1 7–14.
@@ -262,7 +262,7 @@ vector<Process> ──┬──► NonPreemptiveScheduler::schedule ──► Sc
 
 1. Người dùng bấm nút xuất kết quả trên `MainWindow`.
 2. `MainWindow` gọi các hàm ghi với `ScheduleResult` đã có.
-3. Mỗi hàm mở file trong `output/`, ghi header rồi từng dòng; `writeGantt` gộp các đoạn liền nhau cùng `pid`; `writeComparison` làm tròn 2 chữ số thập phân.
+3. Mỗi hàm mở file trong `output/`, ghi header rồi từng dòng; `writeGantt` ghi nguyên các đoạn đã gộp sẵn từ scheduler; `writeComparison` làm tròn 2 chữ số thập phân.
 4. Lỗi ghi file (không mở được, thư mục không tồn tại) trả `false` kèm thông báo.
 
 ### 4.4. Cách các thành phần tương tác
@@ -271,7 +271,7 @@ vector<Process> ──┬──► NonPreemptiveScheduler::schedule ──► Sc
 - **Scheduler → CSV:** trả `ScheduleResult`; CSV chỉ đọc kết quả để ghi, không tính toán lại.
 - **Metrics → CSV:** các giá trị trung bình đã nằm sẵn trong `ScheduleResult`; CSV chỉ định dạng.
 - **CSV ↔ UI:** `MainWindow` gọi hàm CSV và hiển thị lỗi; CSV không phụ thuộc Qt.
-- **Benchmark:** dùng các file trong `samples/` (`perf_small`, `perf_medium`, `perf_large`); kết quả benchmark ghi riêng vào `report/`, không trộn với `output/`.
+- **Benchmark:** dùng các file trong `samples/` (`perf_<n>.csv`); kết quả benchmark ghi riêng vào `report/`, không trộn với `output/`.
 
 ## 5. Cấu trúc và thiết kế
 
@@ -283,21 +283,21 @@ PriorityScheduling/
     core/   Process.h, GanttSegment.h, ScheduleResult.h, scheduler, Metrics
     io/     CsvHandler.h, CsvHandler.cpp          ← phần của tôi
   tests/
-    unit/   csv_handler_test.cpp
+    unit/csv/  csv_handler_test.cpp
     third_party/doctest.h
-  samples/  sample.csv, perf_small.csv, perf_medium.csv, perf_large.csv
+  samples/  sample.csv, sample_20.csv, perf_<n>.csv (sinh bằng tools/generate_perf.cpp)
   input/    dữ liệu người dùng
   output/   np_result.csv, np_gantt.csv, p_result.csv, p_gantt.csv, comparison.csv
   docs/     tài liệu
 ```
 
-### 5.2. Hàm quan trọng (thiết kế đề xuất)
+### 5.2. Hàm quan trọng (theo `docs/api.md`)
 
 | Hàm | Đầu vào | Đầu ra | Vai trò |
 |---|---|---|---|
 | `readProcesses(path, out, error)` | đường dẫn file | `bool`, `vector<Process>`, lỗi | Đọc và kiểm tra file đầu vào |
 | `writeProcessResults(path, result, error)` | đường dẫn, `ScheduleResult` | `bool`, lỗi | Ghi `pid,CT,TAT,WT,RT` |
-| `writeGantt(path, result, error)` | đường dẫn, `ScheduleResult` | `bool`, lỗi | Ghi `pid,start,end`, gộp đoạn liền nhau |
+| `writeGantt(path, result, error)` | đường dẫn, `ScheduleResult` | `bool`, lỗi | Ghi `pid,start,end` đúng như nhận được |
 | `writeComparison(path, np, p, error)` | hai `ScheduleResult` | `bool`, lỗi | Ghi `metric,np,p` từ số liệu có sẵn |
 | hàm nội bộ `splitLine`, `trim`, `parseInt` | chuỗi | các trường / số nguyên | Hỗ trợ tách và chuyển đổi, không public |
 
@@ -310,40 +310,41 @@ PriorityScheduling/
 - **Kiểm tra dữ liệu ngay khi đọc**: scheduler có thể tin rằng đầu vào đã hợp lệ.
 - **`pid = -1` cho IDLE trong file**: UI mới chuyển thành chữ "IDLE" và ghép tiền tố "P".
 
-### 5.4. Điểm cần thống nhất với nhóm
+### 5.4. Các điểm đã chốt theo `docs/api.md`
 
-1. Tên hàm và chữ ký chính xác của `CsvHandler` (`static` giống scheduler hay không).
-2. Việc gộp các đoạn Gantt liền nhau cùng `pid` do `writeGantt` làm hay do nơi khác làm trước khi truyền vào.
-3. Việc làm tròn 2 chữ số thập phân khi ghi `comparison.csv` do `writeComparison` đảm nhiệm.
-4. Tên file tài liệu: quy ước nhóm đặt `docs/<Module>.md`; hiện file là `csv-handler.md`, có thể đổi thành `CsvHandler.md`.
+1. Tên hàm và chữ ký: `class CsvHandler` với bốn hàm `static` (`readProcesses`, `writeProcessResults`, `writeGantt`, `writeComparison`), trả `bool` kèm `std::string& error`.
+2. Gộp các đoạn Gantt liền kề cùng `pid` là việc của scheduler; `writeGantt` chỉ ghi lại.
+3. Làm tròn 2 chữ số thập phân khi ghi `comparison.csv` do `writeComparison` đảm nhiệm, dựa trên ba trường `average*` mà `Metrics` đã điền.
+4. Còn lại: tên file tài liệu theo quy ước `docs/<Module>.md` (hiện là `csv-handler.md`), cần hỏi nhóm có đổi thành `CsvHandler.md` hay không.
 
 ## 6. Kế hoạch kiểm thử độc lập
 
 - **Framework:** doctest (single header), đặt tại `tests/third_party/doctest.h`, thêm vào CMake bằng `target_include_directories`.
-- **Vị trí:** `tests/unit/csv_handler_test.cpp`, chạy độc lập, không cần Qt hay scheduler.
+- **Vị trí:** `tests/unit/csv/csv_handler_test.cpp`, chạy độc lập, không cần Qt hay scheduler.
 - **Điều kiện PR:** test xanh trước khi tạo PR vào `main`.
-- **Nghiệm thu:** chạy `samples/sample.csv` qua hai biến thể, so `output/*.csv` khớp bảng chuẩn ở mục 3.4 và 3.5.
+- **Nghiệm thu:** chạy `samples/sample.csv` qua hai biến thể, so kết quả ghi ra khớp file chuẩn trong `tests/data/ket_qua/csv/`.
 
 Bảng kiểm thử (cột "Thực tế" được điền khi chạy test):
 
 | Nhóm | Trường hợp | Kỳ vọng | Thực tế |
 |---|---|---|---|
-| Bình thường | `samples/sample.csv` 3 tiến trình | `true`, 3 `Process` đúng giá trị và thứ tự | (điền khi chạy) |
-| Bình thường | Dòng trống, khoảng trắng thừa, `\r\n` | Bỏ qua dòng trống, giá trị vẫn đúng | (điền khi chạy) |
-| Bình thường | Ghi `np_result.csv` rồi đọc lại | Khớp `ScheduleResult` ban đầu | (điền khi chạy) |
-| IDLE | Gantt có đoạn `pid = -1` | File ghi đúng `-1`, hai đoạn IDLE liền nhau được gộp | (điền khi chạy) |
-| Hòa (tie) | Hai tiến trình cùng priority và AT | Thứ tự dòng trong `vector` được giữ nguyên | (điền khi chạy) |
-| Preemption | Gantt có cùng `pid` xuất hiện nhiều đoạn không liền nhau | Ghi đủ các đoạn, không gộp nhầm | (điền khi chạy) |
-| Input lỗi | Thiếu / thừa cột | `false`, lỗi nêu đúng số dòng | (điền khi chạy) |
-| Input lỗi | Giá trị không phải số | `false`, lỗi nêu đúng số dòng | (điền khi chạy) |
-| Input lỗi | `burst <= 0`, `arrival < 0`, `pid <= 0` | `false`, lỗi nêu đúng số dòng | (điền khi chạy) |
-| Input lỗi | `pid` trùng | `false` | (điền khi chạy) |
-| Input lỗi | File không tồn tại, file rỗng, chỉ có header | `false` | (điền khi chạy) |
-| Đầu ra | `comparison.csv` | `metric,np,p`, làm tròn 2 chữ số (`5.67`, `10.33`, `3.00`) | (điền khi chạy) |
+| Bình thường | `tests/data/csv/sample.csv` 10 tiến trình (C01) | `true`, 10 `Process` đúng giá trị và thứ tự | Đạt |
+| Bình thường | Dòng trống, khoảng trắng thừa, `\r\n` | Bỏ qua dòng trống, giá trị vẫn đúng | Đạt |
+| Bình thường | Ghi `np_result.csv` rồi đọc lại | Khớp `ScheduleResult` ban đầu | Đạt |
+| IDLE | Gantt có đoạn `pid = -1` | File ghi đúng `-1`, không ghi chữ "IDLE" | Đạt |
+| Hòa (tie) | Hai tiến trình cùng priority và AT | Thứ tự dòng trong `vector` được giữ nguyên | Đạt |
+| Preemption | Gantt có cùng `pid` xuất hiện nhiều đoạn không liền nhau | Ghi đủ các đoạn đúng thứ tự, không gộp | Đạt |
+| Input lỗi | Thiếu / thừa cột | `false`, lỗi nêu đúng số dòng | Đạt |
+| Input lỗi | Giá trị không phải số | `false`, lỗi nêu đúng số dòng | Đạt |
+| Input lỗi | `burst <= 0`, `arrival < 0`, `pid <= 0` | `false`, lỗi nêu đúng số dòng | Đạt |
+| Input lỗi | `pid` trùng | `false` | Đạt |
+| Input lỗi | File không tồn tại, file rỗng, chỉ có header | `false` | Đạt |
+| Đầu ra | `comparison.csv` | `metric,np,p`, làm tròn 2 chữ số (`5.67`, `10.33`, `3.00`) | Đạt |
 
 ## 7. Tiến độ
 
 - [x] Nghiên cứu phần phụ trách, thiết kế giao diện, viết tài liệu (tuần này).
 - [x] Cập nhật tài liệu theo quy ước thống nhất của nhóm.
-- [ ] Cài đặt `CsvHandler` (tuần sau).
-- [ ] Viết test độc lập bằng doctest và tạo PR vào `main`.
+- [x] Cài đặt `CsvHandler` (`src/io/CsvHandler.h`, `src/io/CsvHandler.cpp`).
+- [x] Viết test độc lập bằng doctest (44 test case, tất cả pass).
+- [ ] Chạy bộ test của Leader và tạo PR vào `main`.
