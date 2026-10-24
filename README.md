@@ -164,7 +164,7 @@ Hoặc chạy trực tiếp từng bộ test:
 | [docs/test-cases/](docs/test-cases/) | Bộ test case chia theo thành viên |
 | docs/plan.md | Kế hoạch 8 tuần *(chưa tạo)* |
 | docs/csv-handler.md | Module CSV I/O *(chưa tạo)* |
-| docs/NonPreemptive.md | Thuật toán non-preemptive *(chưa tạo)* |
+| [docs/NonPreemptive.md](docs/NonPreemptive.md) | Thuật toán non-preemptive |
 | docs/Preemptive.md | Thuật toán preemptive *(chưa tạo)* |
 | docs/GUI.md | Giao diện Qt *(chưa tạo)* |
 
