@@ -1,15 +1,13 @@
 #include "core/Metrics.h"
 
 namespace {
-
-double average(long double sum, std::size_t count) {
-    if (count == 0) {
-        return 0.0;
+    double average(long double sum, std::size_t count) {
+        if (count == 0) {
+            return 0.0;
+        }
+        return sum / count;
     }
-    return sum / count;
 }
-
-} // namespace
 
 void Metrics::fillAverages(ScheduleResult& result) {
     long double waiting = 0.0;
@@ -30,8 +28,8 @@ void Metrics::fillAverages(ScheduleResult& result) {
 
 Comparison Metrics::compare(const ScheduleResult& np, const ScheduleResult& p) {
     Comparison comparison;
-    comparison.waitingTime = {np.averageWaitingTime, p.averageWaitingTime};
-    comparison.turnaroundTime = {np.averageTurnaroundTime, p.averageTurnaroundTime};
-    comparison.responseTime = {np.averageResponseTime, p.averageResponseTime};
+    comparison.waitingTime = { np.averageWaitingTime, p.averageWaitingTime };
+    comparison.turnaroundTime = { np.averageTurnaroundTime, p.averageTurnaroundTime };
+    comparison.responseTime = { np.averageResponseTime, p.averageResponseTime };
     return comparison;
 }
