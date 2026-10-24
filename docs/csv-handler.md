@@ -21,7 +21,7 @@ Module **không** xếp lịch, **không** tính toán lại số liệu và **k
 | Hòa priority: AT nhỏ hơn trước; hòa cả hai: theo thứ tự dòng trong `vector` | Module phải **giữ nguyên thứ tự dòng** của file, không sắp xếp lại bất kỳ dữ liệu nào khi đọc/ghi. |
 | Không có tiến trình sẵn sàng: CPU ở trạng thái IDLE | IDLE được ghi là `pid = -1` trong mọi file CSV; chữ "IDLE" chỉ xuất hiện ở giao diện. |
 | `pid` luôn là `int`; UI tự ghép tiền tố "P" | File CSV chỉ ghi số (`1`, `2`, ...), không ghi `P1`. |
-| Mọi trường thời gian là `long long` | Khi đọc dùng `std::stoll`; khi ghi giữ nguyên số nguyên. |
+| Mọi trường thời gian là `long long` | Khi đọc dùng `std::from_chars` (không ném exception); `arrival` và `burst` tối đa 10^12 để scheduler cộng dồn không tràn; khi ghi giữ nguyên số nguyên. |
 | Không I/O, không chi phí chuyển ngữ cảnh, starvation/aging ngoài phạm vi | Không ảnh hưởng đến CSV. |
 | Mọi lỗi đọc file phải hiển thị lên GUI | CsvHandler trả thông báo lỗi; `MainWindow` chịu trách nhiệm hiển thị. |
 | Mỗi module có test xanh trước khi tạo PR vào `main` | Có kế hoạch kiểm thử riêng cho CSV (mục 6). |
@@ -45,7 +45,7 @@ Module **không** xếp lịch, **không** tính toán lại số liệu và **k
 - Giá trị không hợp lệ về ý nghĩa: `pid <= 0`, `arrival < 0`, `burst <= 0`.
 - `pid` bị trùng.
 - File không tồn tại hoặc không mở được.
-- Thư viện chuẩn C++17 (`std::ifstream`, `std::getline`, `std::stringstream`, `std::stoll`) là đủ, không cần thư viện ngoài.
+- Thư viện chuẩn C++17 (`std::ifstream`, `std::getline`, `std::from_chars`) là đủ, không cần thư viện ngoài.
 
 ## 2. Mô tả các chức năng chính và nhiệm vụ của từng thành phần
 

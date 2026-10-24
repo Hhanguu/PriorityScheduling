@@ -38,7 +38,7 @@ std::string slurpExpected(const std::string& path) {
     std::string out;
     out.reserve(text.size());
     for (char c : text) {
-        if (c != '') {
+        if (c != '\r') {
             out += c;
         }
     }
@@ -348,6 +348,24 @@ TEST_CASE("so qua lon khong lam crash") {
     std::string error;
     CHECK_FALSE(CsvHandler::readProcesses(file.path, p, error));
     CHECK(contains(error, "Dòng 2"));
+}
+
+TEST_CASE("arrival hoac burst vuot gioi han tren bi tu choi") {
+    TempFile file("gioi_han.csv");
+    std::vector<Process> p;
+    std::string error;
+
+    writeText(file.path, "pid,arrival,burst,priority\n1,1000000000001,5,3\n");
+    CHECK_FALSE(CsvHandler::readProcesses(file.path, p, error));
+    CHECK(contains(error, "Dòng 2"));
+    CHECK(contains(error, "arrival"));
+
+    writeText(file.path, "pid,arrival,burst,priority\n1,0,1000000000001,3\n");
+    CHECK_FALSE(CsvHandler::readProcesses(file.path, p, error));
+    CHECK(contains(error, "burst"));
+
+    writeText(file.path, "pid,arrival,burst,priority\n1,1000000000000,1000000000000,3\n");
+    CHECK(CsvHandler::readProcesses(file.path, p, error));
 }
 
 TEST_CASE("thong bao loi la UTF-8 dung byte") {
