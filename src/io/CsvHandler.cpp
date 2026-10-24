@@ -5,15 +5,18 @@
 #include <fstream>
 #include <iomanip>
 #include <locale>
-#include <sstream>
 #include <unordered_set>
 
 namespace {
 
 const char* const kHeader = "pid,arrival,burst,priority";
+const char* const kFieldNames[] = {"pid", "arrival", "burst", "priority"};
 const int kColumnCount = 4;
 
-// Cắt khoảng trắng (và ký tự \r của file Windows) ở hai đầu chuỗi.
+// Chặn arrival/burst quá lớn để scheduler cộng dồn thời gian không bị tràn long long.
+const long long kMaxTime = 1000000000000LL;
+
+// Cắt khoảng trắng và '\r' (file Windows) ở hai đầu chuỗi.
 std::string trim(const std::string& s) {
     const char* spaces = " \t\r\n";
     const std::size_t first = s.find_first_not_of(spaces);
@@ -24,63 +27,48 @@ std::string trim(const std::string& s) {
     return s.substr(first, last - first + 1);
 }
 
-// Tách dòng theo dấu phẩy, giữ cả ô rỗng để đếm đúng số cột.
+// Giữ cả ô rỗng để đếm đúng số cột.
 std::vector<std::string> splitLine(const std::string& line) {
     std::vector<std::string> fields;
-    std::string current;
-    for (char c : line) {
-        if (c == ',') {
-            fields.push_back(trim(current));
-            current.clear();
-        } else {
-            current += c;
+    std::size_t start = 0;
+    while (true) {
+        const std::size_t comma = line.find(',', start);
+        if (comma == std::string::npos) {
+            fields.push_back(trim(line.substr(start)));
+            return fields;
         }
+        fields.push_back(trim(line.substr(start, comma - start)));
+        start = comma + 1;
     }
-    fields.push_back(trim(current));
-    return fields;
 }
 
-// Chuyển cả chuỗi thành số nguyên; sai định dạng (chữ, số thực, rỗng) thì trả false.
-// Dùng from_chars nên không ném exception.
+// Chỉ nhận cả chuỗi là số nguyên; "abc", "3.5", "" đều trả false.
 bool parseInteger(const std::string& text, long long& value) {
     if (text.empty()) {
         return false;
     }
-    const char* begin = text.data();
-    const char* end = begin + text.size();
-    const std::from_chars_result r = std::from_chars(begin, end, value);
+    const char* end = text.data() + text.size();
+    const std::from_chars_result r = std::from_chars(text.data(), end, value);
     return r.ec == std::errc() && r.ptr == end;
 }
 
-std::string lineError(int lineNumber, const std::string& message) {
-    return "Dòng " + std::to_string(lineNumber) + ": " + message;
-}
-
-// Mở file ghi ở chế độ nhị phân để cuối dòng luôn là '\n' (Windows không đổi thành \r\n).
-bool openForWrite(const std::string& path, std::ofstream& file, std::string& error) {
-    file.open(path, std::ios::out | std::ios::binary | std::ios::trunc);
+// Mở file nhị phân (cuối dòng luôn là '\n', kể cả trên Windows), gọi write(file), rồi kiểm tra lỗi.
+template <typename WriteFn>
+bool writeFile(const std::string& path, std::string& error, WriteFn write) {
+    error.clear();
+    std::ofstream file(path, std::ios::out | std::ios::binary | std::ios::trunc);
     if (!file.is_open()) {
         error = "Không ghi được file: " + path;
         return false;
     }
-    return true;
-}
-
-bool finishWrite(const std::string& path, std::ofstream& file, std::string& error) {
+    file.imbue(std::locale::classic()); // không để locale máy chèn dấu phân cách hàng nghìn
+    write(file);
     file.flush();
     if (!file) {
         error = "Ghi file thất bại: " + path;
         return false;
     }
     return true;
-}
-
-// Số thực làm tròn 2 chữ số thập phân, luôn dùng dấu chấm.
-std::string formatTwoDecimals(double value) {
-    std::ostringstream out;
-    out.imbue(std::locale::classic());
-    out << std::fixed << std::setprecision(2) << value;
-    return out.str();
 }
 
 } // namespace
@@ -97,21 +85,22 @@ bool CsvHandler::readProcesses(const std::string& path,
         return false;
     }
 
-    std::string line;
-    int lineNumber = 0;
+    int lineNumber = 1;
+    auto fail = [&](const std::string& message) {
+        error = "Dòng " + std::to_string(lineNumber) + ": " + message;
+        return false;
+    };
 
-    // Dòng 1 phải là header đúng chuẩn.
+    std::string line;
     if (!std::getline(file, line)) {
-        error = lineError(1, std::string("header phải là ") + kHeader);
-        return false;
+        return fail(std::string("header phải là ") + kHeader);
     }
-    lineNumber = 1;
-    if (line.size() >= 3 && line.compare(0, 3, "\xEF\xBB\xBF") == 0) {
-        line.erase(0, 3); // bỏ BOM UTF-8 nếu file được lưu từ Excel/Notepad
+    if (line.compare(0, 3, "\xEF\xBB\xBF") == 0) {
+        line.erase(0, 3); // BOM UTF-8 do Excel/Notepad thêm vào
     }
-    if (splitLine(line) != splitLine(kHeader)) {
-        error = lineError(lineNumber, std::string("header phải là ") + kHeader);
-        return false;
+    static const std::vector<std::string> expectedHeader = splitLine(kHeader);
+    if (splitLine(line) != expectedHeader) {
+        return fail(std::string("header phải là ") + kHeader);
     }
 
     std::unordered_set<int> seenPids;
@@ -120,51 +109,42 @@ bool CsvHandler::readProcesses(const std::string& path,
     while (std::getline(file, line)) {
         ++lineNumber;
         if (trim(line).empty()) {
-            continue; // bỏ qua dòng trống
+            continue;
         }
 
         const std::vector<std::string> fields = splitLine(line);
         if (static_cast<int>(fields.size()) != kColumnCount) {
-            error = lineError(lineNumber, "cần 4 cột, có " + std::to_string(fields.size()));
-            return false;
+            return fail("cần " + std::to_string(kColumnCount) + " cột, có " +
+                        std::to_string(fields.size()));
         }
 
-        static const char* const names[kColumnCount] = {"pid", "arrival", "burst", "priority"};
-        long long values[kColumnCount] = {0, 0, 0, 0};
+        long long values[kColumnCount];
         for (int i = 0; i < kColumnCount; ++i) {
             if (!parseInteger(fields[i], values[i])) {
-                error = lineError(lineNumber, std::string(names[i]) + " không phải số nguyên");
-                return false;
+                return fail(std::string(kFieldNames[i]) + " không phải số nguyên");
             }
         }
-
         const long long pid = values[0];
         const long long arrival = values[1];
         const long long burst = values[2];
         const long long priority = values[3];
 
-        if (pid > INT_MAX || priority > INT_MAX || priority < INT_MIN) {
-            error = lineError(lineNumber, "giá trị vượt quá phạm vi cho phép");
-            return false;
+        if (pid <= 0 || pid > INT_MAX) {
+            return fail("pid phải trong khoảng 1 đến " + std::to_string(INT_MAX));
         }
-        if (pid <= 0) {
-            error = lineError(lineNumber, "pid phải > 0");
-            return false;
+        if (arrival < 0 || arrival > kMaxTime) {
+            return fail("arrival phải trong khoảng 0 đến " + std::to_string(kMaxTime));
         }
-        if (arrival < 0) {
-            error = lineError(lineNumber, "arrival phải >= 0");
-            return false;
+        if (burst <= 0 || burst > kMaxTime) {
+            return fail("burst phải trong khoảng 1 đến " + std::to_string(kMaxTime));
         }
-        if (burst <= 0) {
-            error = lineError(lineNumber, "burst phải > 0");
-            return false;
+        if (priority < INT_MIN || priority > INT_MAX) {
+            return fail("priority vượt quá phạm vi số nguyên 32 bit");
         }
         if (!seenPids.insert(static_cast<int>(pid)).second) {
-            error = lineError(lineNumber, "pid " + std::to_string(pid) + " bị trùng");
-            return false;
+            return fail("pid " + std::to_string(pid) + " bị trùng");
         }
 
-        // Thêm vào cuối nên thứ tự dòng trong file được giữ nguyên.
         result.push_back(Process{static_cast<int>(pid), arrival, burst, static_cast<int>(priority)});
     }
 
@@ -180,54 +160,35 @@ bool CsvHandler::readProcesses(const std::string& path,
 bool CsvHandler::writeProcessResults(const std::string& path,
                                      const ScheduleResult& result,
                                      std::string& error) {
-    error.clear();
-    std::ofstream file;
-    if (!openForWrite(path, file, error)) {
-        return false;
-    }
-
-    file << "pid,CT,TAT,WT,RT\n";
-    for (const ProcessResult& r : result.processes) {
-        file << r.pid << ',' << r.completionTime << ',' << r.turnaroundTime << ','
-             << r.waitingTime << ',' << r.responseTime << '\n';
-    }
-    return finishWrite(path, file, error);
+    return writeFile(path, error, [&](std::ofstream& file) {
+        file << "pid,CT,TAT,WT,RT\n";
+        for (const ProcessResult& r : result.processes) {
+            file << r.pid << ',' << r.completionTime << ',' << r.turnaroundTime << ','
+                 << r.waitingTime << ',' << r.responseTime << '\n';
+        }
+    });
 }
 
 bool CsvHandler::writeGantt(const std::string& path,
                             const ScheduleResult& result,
                             std::string& error) {
-    error.clear();
-    std::ofstream file;
-    if (!openForWrite(path, file, error)) {
-        return false;
-    }
-
-    // Scheduler đã gộp đoạn liền kề; ở đây chỉ ghi lại đúng như nhận được (IDLE = -1).
-    file << "pid,start,end\n";
-    for (const GanttSegment& s : result.gantt) {
-        file << s.pid << ',' << s.startTime << ',' << s.endTime << '\n';
-    }
-    return finishWrite(path, file, error);
+    return writeFile(path, error, [&](std::ofstream& file) {
+        file << "pid,start,end\n";
+        for (const GanttSegment& s : result.gantt) {
+            file << s.pid << ',' << s.startTime << ',' << s.endTime << '\n';
+        }
+    });
 }
 
 bool CsvHandler::writeComparison(const std::string& path,
                                  const ScheduleResult& np,
                                  const ScheduleResult& p,
                                  std::string& error) {
-    error.clear();
-    std::ofstream file;
-    if (!openForWrite(path, file, error)) {
-        return false;
-    }
-
-    // Chỉ định dạng các trung bình Metrics đã điền, không tự tính lại.
-    file << "metric,np,p\n";
-    file << "avg_WT," << formatTwoDecimals(np.averageWaitingTime) << ','
-         << formatTwoDecimals(p.averageWaitingTime) << '\n';
-    file << "avg_TAT," << formatTwoDecimals(np.averageTurnaroundTime) << ','
-         << formatTwoDecimals(p.averageTurnaroundTime) << '\n';
-    file << "avg_RT," << formatTwoDecimals(np.averageResponseTime) << ','
-         << formatTwoDecimals(p.averageResponseTime) << '\n';
-    return finishWrite(path, file, error);
+    return writeFile(path, error, [&](std::ofstream& file) {
+        file << std::fixed << std::setprecision(2);
+        file << "metric,np,p\n";
+        file << "avg_WT," << np.averageWaitingTime << ',' << p.averageWaitingTime << '\n';
+        file << "avg_TAT," << np.averageTurnaroundTime << ',' << p.averageTurnaroundTime << '\n';
+        file << "avg_RT," << np.averageResponseTime << ',' << p.averageResponseTime << '\n';
+    });
 }
