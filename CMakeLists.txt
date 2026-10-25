@@ -54,7 +54,7 @@ add_executable(PriorityScheduling
     src/ui/GanttChart.cpp
     src/ui/MainWindow.cpp
 )
-
+target_include_directories(PriorityScheduling PRIVATE src)
 target_link_libraries(PriorityScheduling PRIVATE ps_core Qt6::Widgets)
 target_compile_options(PriorityScheduling PRIVATE ${PS_WARNINGS})
 
