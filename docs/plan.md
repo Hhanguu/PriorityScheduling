@@ -41,7 +41,7 @@ Còn thiếu:
 1. Hoàn thiện test preemptive theo P01–P18 và test tích hợp I01–I08.
 2. Nối GUI từ `main`: `main.cpp` → `MainWindow` → `GanttChart` → comparison.
 3. Viết benchmark runner, đo dãy nhỏ trước, tối ưu preemptive nếu cần.
-4. Dọn test trùng, cập nhật README/docs, bật CI.
+4. Dọn test trùng, cập nhật README/docs, kiểm tra build/test trước khi tạo PR.
 
 ## 4. Điều kiện nghiệm thu
 
@@ -60,4 +60,3 @@ Còn thiếu:
 | PR #33 chứa file rỗng | Không merge được | Đóng PR, tạo nhánh mới từ `main` |
 | Test preemptive quá mỏng | Lỗi lọt vào `main` | Đọc fixture, so full Gantt và averages |
 | GUI chưa nối | Không demo được | Ưu tiên sau test core |
-| Thiếu CI | PR lỗi được merge | Bật workflow build + ctest |
