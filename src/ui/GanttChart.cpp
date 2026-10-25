@@ -23,7 +23,9 @@ void GanttChart::paintEvent(QPaintEvent *event) {
 
     if (m_blocks.isEmpty()) {
         painter.setPen(Qt::gray);
-        painter.setFont(QFont("Segoe UI", 10, QFont::Italic));
+        QFont font("Segoe UI", 10);
+font.setItalic(true);
+painter.setFont(font);
         painter.drawText(rect(), Qt::AlignCenter, "Chưa có dữ liệu biểu đồ Gantt.");
         return;
     }
@@ -66,7 +68,7 @@ void GanttChart::paintEvent(QPaintEvent *event) {
 
         painter.setPen(Qt::white);
         painter.setFont(QFont("Segoe UI", 10, QFont::Bold));
-        painter.drawText(QRect(x, startY, w, chartHeight), Qt::AlignCenter, block.processId);
+        painter.drawText(QRect(x, startY, w, chartHeight), Qt::AlignCenter, QString::number(block.processId));
 
         painter.setPen(Qt::black);
         painter.setFont(QFont("Segoe UI", 9));
