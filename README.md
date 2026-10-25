@@ -26,17 +26,26 @@ xuất kết quả ra **CSV**. Giao diện desktop viết bằng **Qt6 Widgets**
 
 ```
 src/
+  main.cpp
   core/       Process, ScheduleResult, GanttSegment,
               NonPreemptiveScheduler, PreemptiveScheduler, Metrics
   io/         CsvHandler — đọc/ghi CSV
   ui/         MainWindow, GanttChart (Qt)
-  benchmark/  đo hiệu năng hai thuật toán
-samples/      dữ liệu mẫu chuẩn (10 và 20 process) + bộ data benchmark
-input/        dữ liệu đầu vào
-output/       kết quả ghi ra
-report/       số liệu benchmark, tài liệu báo cáo
-tests/        unit/ , integration/, third_party/ (doctest)
-docs/         api.md + conventions.md + test-cases/ + tài liệu module
+  benchmark/  placeholder — chưa có runner đo hiệu năng
+tools/        generate_perf.cpp — sinh dữ liệu benchmark
+samples/      sample.csv, sample_20.csv
+input/        sample.csv, sample_20.csv
+output/       5 CSV kết quả mẫu
+report/       .gitkeep — chưa có báo cáo/benchmark
+tests/
+  unit/       csv, non-preemptive, preemptive, leader, gui
+  integration/
+  data/       input + ket_qua/ (expected results)
+  third_party/doctest.h
+docs/
+  api.md, conventions.md, algorithms.md,
+  csv-handler.md, NonPreemptive.md, Preemptive.md,
+  GUI.md, plan.md, test-cases/
 ```
 
 Quy ước chung của nhóm: [docs/conventions.md](docs/conventions.md)
