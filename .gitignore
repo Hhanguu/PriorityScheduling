@@ -1,29 +1,8 @@
-
-# Build output
-/build/
-cmake-build-*/
-
-# CMake generated files
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-compile_commands.json
-
-# Compiled files
-*.o
-*.a
-*.so
-*.exe
-
-# IDE
-.vscode/
-.idea/
-# Qt Creator / CMake user files
+﻿.vs/
+out/
+build/
+x64/
+Debug/
+*.sln
+*.vcxproj*
 *.user
-*.user.*
-CMakeUserPresets.json
-build-*/
-
-# Benchmark data (generated)
-samples/perf_*.csv
