@@ -10,6 +10,9 @@ Chương trình đọc danh sách tiến trình từ **CSV**, kiểm tra hợp l
 thời gian (CT, TAT, WT, RT), hiển thị bảng kết quả và **Gantt Chart trên màn hình**,
 xuất kết quả ra **CSV**. Giao diện desktop viết bằng **Qt6 Widgets** (không phải console / Web App).
 
+> Trạng thái: core CSV và Non-preemptive đã xong; test preemptive, integration, GUI và
+> benchmark còn thiếu. Xem [docs/plan.md](docs/plan.md).
+
 ## Công nghệ
 
 | Thành phần | Công nghệ |
@@ -152,7 +155,7 @@ Hoặc chạy trực tiếp từng bộ test:
 - Framework: **doctest** (`tests/third_party/doctest.h`), mỗi bộ test có `doctest_main.cpp` riêng.
 - Unit test: `tests/unit/<thành viên>/` — expected vs actual cho case bình thường, IDLE, hòa điểm, preemption, input lỗi.
 - Integration test: `tests/integration/` — pipeline `CSV → 2 scheduler → Metrics → ghi file`.
-- Benchmark: dãy 1 → 10 → 50 → 100 → 150 → 200 → 500 → 1.000 → 5.000 → 10.000 → 50.000 → 100.000 → 500.000 → 1.000.000 tiến trình, sinh bằng `./build/generate_perf`, số liệu trong `report/`.
+- Benchmark: dãy 1 → 10 → 50 → 100 → 150 → 200 → 500 → 1.000 → 5.000 → 10.000 → 50.000 → 100.000 → 500.000 → 1.000.000 tiến trình, sinh bằng `./build/generate_perf`; runner đo và số liệu trong `report/` đang được bổ sung.
 - Test cuối do Leader nghiệm thu: chạy `samples/sample.csv` qua cả hai thuật toán, đối chiếu `output/` với bảng chuẩn trong `docs/conventions.md`.
 
 ## Tài liệu và phân công
@@ -162,11 +165,11 @@ Hoặc chạy trực tiếp từng bộ test:
 | [docs/api.md](docs/api.md) | Hợp đồng API v1.0 + bảng kết quả chuẩn |
 | [docs/conventions.md](docs/conventions.md) | Quy ước chung — pháp nhân: Leader |
 | [docs/test-cases/](docs/test-cases/) | Bộ test case chia theo thành viên |
-| docs/plan.md | Kế hoạch 8 tuần *(chưa tạo)* |
-| docs/csv-handler.md | Module CSV I/O *(chưa tạo)* |
+| [docs/plan.md](docs/plan.md) | Kế hoạch 8 tuần và trạng thái |
+| [docs/csv-handler.md](docs/csv-handler.md) | Module CSV I/O |
 | [docs/NonPreemptive.md](docs/NonPreemptive.md) | Thuật toán non-preemptive |
 | [docs/Preemptive.md](docs/Preemptive.md) | Thuật toán preemptive |
-| docs/GUI.md | Giao diện Qt *(chưa tạo)* |
+| [docs/GUI.md](docs/GUI.md) | Giao diện Qt |
 
 Nhánh git: `feature/csv`, `feature/non-preemptive`, `feature/preemptive`, `feature/gui` → PR vào `main`.
 Mỗi thành viên commit đều đặn hằng tuần và ghi rõ nội dung commit (không để repository im 3 tuần liên tiếp).

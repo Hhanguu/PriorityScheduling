@@ -1,8 +1,29 @@
-﻿.vs/
-out/
-build/
-x64/
-Debug/
+# IDE / editor
+.vs/
+.vscode/
+.idea/
 *.sln
 *.vcxproj*
 *.user
+*.suo
+*.swp
+
+# Build output
+build/
+build-*/
+cmake-build-*/
+out/
+x64/
+Debug/
+Release/
+CMakeUserPresets.json
+compile_commands.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated data
+samples/perf_*.csv
+output/*.csv
+!output/.gitkeep
