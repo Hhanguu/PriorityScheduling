@@ -25,5 +25,3 @@ Thumbs.db
 
 # Generated data
 samples/perf_*.csv
-output/*.csv
-!output/.gitkeep

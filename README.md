@@ -123,6 +123,9 @@ pid,arrival,burst,priority
 Thứ tự dòng quyết định khi các tiến trình hòa điểm — chương trình không sắp xếp lại dữ liệu.
 Chi tiết ràng buộc và quy tắc hòa: [docs/conventions.md](docs/conventions.md).
 
+Mẫu có sẵn: `input/sample.csv` (10 tiến trình) và `input/sample_20.csv` (20 tiến trình).
+`samples/` giữ bản gốc dùng cho test và benchmark.
+
 ## Dữ liệu đầu ra
 
 Sau khi chạy, chương trình ghi vào `output/`:
@@ -134,6 +137,9 @@ Sau khi chạy, chương trình ghi vào `output/`:
 | `p_result.csv` | như trên, cho preemptive |
 | `p_gantt.csv` | Gantt của preemptive |
 | `comparison.csv` | trung bình WT, TAT, RT của hai thuật toán cạnh nhau |
+
+`output/` đang có sẵn 5 file mẫu ứng với `input/sample.csv`:
+`np_result.csv`, `np_gantt.csv`, `p_result.csv`, `p_gantt.csv`, `comparison.csv`.
 
 ## Kiểm thử và hiệu năng
 
@@ -165,6 +171,7 @@ Hoặc chạy trực tiếp từng bộ test:
 | [docs/api.md](docs/api.md) | Hợp đồng API v1.0 + bảng kết quả chuẩn |
 | [docs/conventions.md](docs/conventions.md) | Quy ước chung — pháp nhân: Leader |
 | [docs/test-cases/](docs/test-cases/) | Bộ test case chia theo thành viên |
+| [docs/algorithms.md](docs/algorithms.md) | Pseudocode và flowchart hai thuật toán |
 | [docs/plan.md](docs/plan.md) | Kế hoạch 8 tuần và trạng thái |
 | [docs/csv-handler.md](docs/csv-handler.md) | Module CSV I/O |
 | [docs/NonPreemptive.md](docs/NonPreemptive.md) | Thuật toán non-preemptive |

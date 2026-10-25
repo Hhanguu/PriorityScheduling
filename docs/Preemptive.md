@@ -1,5 +1,7 @@
 # TÀI LIỆU MODULE PREEMPTIVE SCHEDULER – PRIORITY SCHEDULING
 
+**Pseudocode và flowchart:** [algorithms.md](algorithms.md).
+
 Nhánh: `feature/preemptive` · File phụ trách: `src/core/PreemptiveScheduler.h`, `src/core/PreemptiveScheduler.cpp`
 
 ## 1. Nghiên cứu về phần mình đảm nhiệm

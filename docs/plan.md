@@ -26,6 +26,7 @@ trên cùng dữ liệu CSV, có test, benchmark và tài liệu nghiệm thu.
 - `CsvHandler` đọc/ghi CSV.
 - Unit test CSV và Non-preemptive; preemptive mới có một case.
 - GUI skeleton compile được.
+- CSV mẫu trong `input/` và `output/`; pseudocode/flowchart trong `docs/algorithms.md`.
 
 Còn thiếu:
 
