@@ -165,7 +165,7 @@ Hoặc chạy trực tiếp từng bộ test:
 | docs/plan.md | Kế hoạch 8 tuần *(chưa tạo)* |
 | docs/csv-handler.md | Module CSV I/O *(chưa tạo)* |
 | [docs/NonPreemptive.md](docs/NonPreemptive.md) | Thuật toán non-preemptive |
-| docs/Preemptive.md | Thuật toán preemptive *(chưa tạo)* |
+| [docs/Preemptive.md](docs/Preemptive.md) | Thuật toán preemptive |
 | docs/GUI.md | Giao diện Qt *(chưa tạo)* |
 
 Nhánh git: `feature/csv`, `feature/non-preemptive`, `feature/preemptive`, `feature/gui` → PR vào `main`.
