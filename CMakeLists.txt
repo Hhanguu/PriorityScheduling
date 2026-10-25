@@ -1,49 +1,97 @@
-﻿cmake_minimum_required(VERSION 3.20)
-project(PriorityScheduling LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.21)
+
+project(PriorityScheduling
+    VERSION 1.0
+    LANGUAGES CXX
+)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-# Tìm Qt6
-find_package(Qt6 QUIET COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
-set(CORE_SOURCES
-    src/core/PreemptiveScheduler.cpp
-    src/core/NonPreemptiveScheduler.cpp
+# Cờ cảnh báo theo compiler (MSVC không hiểu -Wall/-Wextra)
+if(MSVC)
+    set(PS_WARNINGS /W4 /permissive-)
+else()
+    set(PS_WARNINGS -Wall -Wextra -Wpedantic)
+endif()
+
+# ---------------------------------------------------------------------------
+# Logic dùng chung: không phụ thuộc Qt, test được độc lập.
+# Include duy nhất: src/  ->  dùng "core/...", "io/...", "ui/...", "benchmark/..."
+# ---------------------------------------------------------------------------
+add_library(ps_core STATIC
     src/core/Metrics.cpp
+    src/core/NonPreemptiveScheduler.cpp
+    src/core/PreemptiveScheduler.cpp
     src/io/CsvHandler.cpp
 )
 
-if(Qt6_FOUND)
-    add_executable(PriorityScheduling
-        src/main.cpp
-        src/ui/MainWindow.cpp
-        src/ui/GanttChart.cpp
-        ${CORE_SOURCES}
-    )
-    target_link_libraries(PriorityScheduling PRIVATE Qt6::Widgets)
-    target_include_directories(PriorityScheduling PRIVATE src)
-endif()
+target_include_directories(ps_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_options(ps_core PRIVATE ${PS_WARNINGS})
 
-enable_testing()
+# Core không được phụ thuộc Qt -> tắt moc để lỗi phụ thuộc Qt lộ ra ngay
+set_target_properties(ps_core PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tests/third_party)
-
-# Tự động tìm TẤT CẢ file .cpp trong thư mục tests/unit/
-file(GLOB_RECURSE UNIT_TEST_SOURCES "tests/unit/*.cpp")
-
-add_executable(all_tests
-    ${UNIT_TEST_SOURCES}
-    ${CORE_SOURCES}
+# ---------------------------------------------------------------------------
+# Ứng dụng GUI
+# ---------------------------------------------------------------------------
+add_executable(PriorityScheduling
+    src/main.cpp
+    src/benchmark/Benchmark.cpp
+    src/ui/GanttChart.cpp
+    src/ui/MainWindow.cpp
 )
 
-# 🔥 DÒNG QUAN TRỌNG NHẤT: Khai báo đường dẫn thư mục data cho các file test của Leader
-target_compile_definitions(all_tests PRIVATE PS_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+target_link_libraries(PriorityScheduling PRIVATE ps_core Qt6::Widgets)
+target_compile_options(PriorityScheduling PRIVATE ${PS_WARNINGS})
 
-target_include_directories(all_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/third_party)
+# ---------------------------------------------------------------------------
+# Sinh dữ liệu benchmark: ./build/generate_perf [--out samples] [--sizes ...]
+# ---------------------------------------------------------------------------
+add_executable(generate_perf tools/generate_perf.cpp)
+target_compile_options(generate_perf PRIVATE ${PS_WARNINGS})
+set_target_properties(generate_perf PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
 
-add_test(NAME AllTests COMMAND all_tests)
+# ---------------------------------------------------------------------------
+# Kiểm thử (tự nhận file mới, không cần sửa CMake khi thêm test)
+# ---------------------------------------------------------------------------
+option(BUILD_TESTING "Build unit tests" ON)
+
+if(BUILD_TESTING)
+    enable_testing()
+
+    file(GLOB_RECURSE UNIT_TEST_SOURCES CONFIGURE_DEPENDS tests/unit/*.cpp)
+    add_executable(unit_tests ${UNIT_TEST_SOURCES})
+    target_link_libraries(unit_tests PRIVATE ps_core)
+    target_include_directories(unit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/third_party)
+    target_compile_definitions(unit_tests PRIVATE
+        PS_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    target_compile_options(unit_tests PRIVATE ${PS_WARNINGS})
+    set_target_properties(unit_tests PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+    add_test(NAME unit_tests COMMAND unit_tests)
+
+    file(GLOB INTEGRATION_TEST_SOURCES CONFIGURE_DEPENDS tests/integration/*.cpp)
+    if(INTEGRATION_TEST_SOURCES)
+        add_executable(integration_tests ${INTEGRATION_TEST_SOURCES})
+        target_link_libraries(integration_tests PRIVATE ps_core)
+        target_include_directories(integration_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/third_party)
+        target_compile_definitions(integration_tests PRIVATE
+            PS_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+        target_compile_options(integration_tests PRIVATE ${PS_WARNINGS})
+        set_target_properties(integration_tests PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+        add_test(NAME integration_tests COMMAND integration_tests)
+    endif()
+endif()
