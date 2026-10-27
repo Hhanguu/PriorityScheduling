@@ -50,7 +50,6 @@ set_target_properties(ps_core PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
 # ---------------------------------------------------------------------------
 add_executable(PriorityScheduling
     src/main.cpp
-    src/benchmark/Benchmark.cpp
     src/ui/GanttChart.cpp
     src/ui/MainWindow.cpp
 )
@@ -94,4 +93,20 @@ if(BUILD_TESTING)
         set_target_properties(integration_tests PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
         add_test(NAME integration_tests COMMAND integration_tests)
     endif()
+
+    add_executable(gui_tests
+        tests/gui/doctest_main.cpp
+        tests/gui/gui_test.cpp
+        src/ui/GanttChart.cpp
+        src/ui/MainWindow.cpp
+    )
+    target_link_libraries(gui_tests PRIVATE ps_core Qt6::Widgets)
+    target_include_directories(gui_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/third_party)
+    target_compile_definitions(gui_tests PRIVATE
+        PS_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    target_compile_options(gui_tests PRIVATE ${PS_WARNINGS})
+    add_test(NAME gui_tests COMMAND gui_tests)
+    set_tests_properties(gui_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()

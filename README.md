@@ -10,8 +10,9 @@ Chương trình đọc danh sách tiến trình từ **CSV**, kiểm tra hợp l
 thời gian (CT, TAT, WT, RT), hiển thị bảng kết quả và **Gantt Chart trên màn hình**,
 xuất kết quả ra **CSV**. Giao diện desktop viết bằng **Qt6 Widgets** (không phải console / Web App).
 
-> Trạng thái: core CSV và Non-preemptive đã xong; test preemptive, integration, GUI và
-> benchmark còn thiếu. Xem [docs/plan.md](docs/plan.md).
+> Trạng thái: core CSV, Non-preemptive, Preemptive và GUI đã chạy được; GUI cho chọn
+> chạy riêng NP, riêng P hoặc cả hai. Test preemptive, integration và benchmark còn thiếu.
+> Xem [docs/plan.md](docs/plan.md).
 
 ## Công nghệ
 
@@ -38,7 +39,8 @@ input/        sample.csv, sample_20.csv
 output/       5 CSV kết quả mẫu
 report/       .gitkeep — chưa có báo cáo/benchmark
 tests/
-  unit/       csv, non-preemptive, preemptive, leader, gui
+  unit/       csv, non-preemptive, preemptive, leader
+  gui/        test GUI Qt (headless)
   integration/
   data/       input + ket_qua/ (expected results)
   third_party/doctest.h
@@ -137,7 +139,8 @@ Mẫu có sẵn: `input/sample.csv` (10 tiến trình) và `input/sample_20.csv`
 
 ## Dữ liệu đầu ra
 
-Sau khi chạy, chương trình ghi vào `output/`:
+Sau khi chạy, chương trình ghi vào thư mục bạn chọn. Chế độ **Cả hai** ghi 5 file;
+chế độ chạy riêng chỉ ghi 2 file của thuật toán đó.
 
 | File | Nội dung |
 |---|---|
@@ -149,6 +152,15 @@ Sau khi chạy, chương trình ghi vào `output/`:
 
 `output/` đang có sẵn 5 file mẫu ứng với `input/sample.csv`:
 `np_result.csv`, `np_gantt.csv`, `p_result.csv`, `p_gantt.csv`, `comparison.csv`.
+
+Trong GUI, bảng chỉ hiển thị tối đa 10.000 dòng để không treo với dữ liệu lớn; file CSV xuất
+vẫn đủ toàn bộ. Gantt có nhiều đoạn hơn số pixel sẽ tự chuyển sang chế độ thu gọn.
+
+Chọn **Chế độ chạy**:
+
+- **Chỉ Non-Preemptive** — chỉ chạy NP, xuất `np_result.csv`, `np_gantt.csv`.
+- **Chỉ Preemptive** — chỉ chạy P, xuất `p_result.csv`, `p_gantt.csv`.
+- **Cả hai + so sánh** — chạy cả hai, xuất đủ 5 file.
 
 ## Kiểm thử và hiệu năng
 
@@ -170,6 +182,7 @@ Hoặc chạy trực tiếp từng bộ test:
 - Framework: **doctest** (`tests/third_party/doctest.h`), mỗi bộ test có `doctest_main.cpp` riêng.
 - Unit test: `tests/unit/<thành viên>/` — expected vs actual cho case bình thường, IDLE, hòa điểm, preemption, input lỗi.
 - Integration test: `tests/integration/` — pipeline `CSV → 2 scheduler → Metrics → ghi file`.
+- GUI test: `tests/gui/` — 9 test / 96 assertion, chạy headless qua `QT_QPA_PLATFORM=offscreen`.
 - Benchmark: dãy 1 → 10 → 50 → 100 → 150 → 200 → 500 → 1.000 → 5.000 → 10.000 → 50.000 → 100.000 → 500.000 → 1.000.000 tiến trình, sinh bằng `./build/generate_perf`; runner đo và số liệu trong `report/` đang được bổ sung.
 - Test cuối do Leader nghiệm thu: chạy `samples/sample.csv` qua cả hai thuật toán, đối chiếu `output/` với bảng chuẩn trong `docs/conventions.md`.
 
