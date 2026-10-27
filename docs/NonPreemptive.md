@@ -1,7 +1,8 @@
 # Non-preemptive Priority Scheduling — Tài liệu module
 
-**Phạm vi:** Module `NonPreemptiveScheduler` trong dự án PriorityScheduling.  
-**Trạng thái:** Tài liệu thiết kế; không khẳng định đã triển khai hoặc kiểm thử.  
+**Phạm vi:** Module `NonPreemptiveScheduler` trong dự án PriorityScheduling.
+**Pseudocode và flowchart:** [algorithms.md](algorithms.md).
+**Trạng thái:** Tài liệu thiết kế; không khẳng định đã triển khai hoặc kiểm thử.
 **Căn cứ:** `docs/conventions.md` (quy ước chung của nhóm).
 
 ## 1. Cấu trúc thư mục

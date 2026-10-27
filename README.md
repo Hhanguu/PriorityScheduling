@@ -10,6 +10,10 @@ Chương trình đọc danh sách tiến trình từ **CSV**, kiểm tra hợp l
 thời gian (CT, TAT, WT, RT), hiển thị bảng kết quả và **Gantt Chart trên màn hình**,
 xuất kết quả ra **CSV**. Giao diện desktop viết bằng **Qt6 Widgets** (không phải console / Web App).
 
+> Trạng thái: core CSV, Non-preemptive, Preemptive và GUI đã chạy được; GUI cho chọn
+> chạy riêng NP, riêng P hoặc cả hai. Test preemptive, integration và benchmark còn thiếu.
+> Xem [docs/plan.md](docs/plan.md).
+
 ## Công nghệ
 
 | Thành phần | Công nghệ |
@@ -23,17 +27,27 @@ xuất kết quả ra **CSV**. Giao diện desktop viết bằng **Qt6 Widgets**
 
 ```
 src/
+  main.cpp
   core/       Process, ScheduleResult, GanttSegment,
               NonPreemptiveScheduler, PreemptiveScheduler, Metrics
   io/         CsvHandler — đọc/ghi CSV
   ui/         MainWindow, GanttChart (Qt)
-  benchmark/  đo hiệu năng hai thuật toán
-samples/      dữ liệu mẫu chuẩn (10 và 20 process) + bộ data benchmark
-input/        dữ liệu đầu vào
-output/       kết quả ghi ra
-report/       số liệu benchmark, tài liệu báo cáo
-tests/        unit/ , integration/, third_party/ (doctest)
-docs/         api.md + conventions.md + test-cases/ + tài liệu module
+  benchmark/  placeholder — chưa có runner đo hiệu năng
+tools/        generate_perf.cpp — sinh dữ liệu benchmark
+samples/      sample.csv, sample_20.csv
+input/        sample.csv, sample_20.csv
+output/       5 CSV kết quả mẫu
+report/       .gitkeep — chưa có báo cáo/benchmark
+tests/
+  unit/       csv, non-preemptive, preemptive, leader
+  gui/        test GUI Qt (headless)
+  integration/
+  data/       input + ket_qua/ (expected results)
+  third_party/doctest.h
+docs/
+  api.md, conventions.md, algorithms.md,
+  csv-handler.md, NonPreemptive.md, Preemptive.md,
+  GUI.md, plan.md, test-cases/
 ```
 
 Quy ước chung của nhóm: [docs/conventions.md](docs/conventions.md)
@@ -120,9 +134,13 @@ pid,arrival,burst,priority
 Thứ tự dòng quyết định khi các tiến trình hòa điểm — chương trình không sắp xếp lại dữ liệu.
 Chi tiết ràng buộc và quy tắc hòa: [docs/conventions.md](docs/conventions.md).
 
+Mẫu có sẵn: `input/sample.csv` (10 tiến trình) và `input/sample_20.csv` (20 tiến trình).
+`samples/` giữ bản gốc dùng cho test và benchmark.
+
 ## Dữ liệu đầu ra
 
-Sau khi chạy, chương trình ghi vào `output/`:
+Sau khi chạy, chương trình ghi vào thư mục bạn chọn. Chế độ **Cả hai** ghi 5 file;
+chế độ chạy riêng chỉ ghi 2 file của thuật toán đó.
 
 | File | Nội dung |
 |---|---|
@@ -131,6 +149,18 @@ Sau khi chạy, chương trình ghi vào `output/`:
 | `p_result.csv` | như trên, cho preemptive |
 | `p_gantt.csv` | Gantt của preemptive |
 | `comparison.csv` | trung bình WT, TAT, RT của hai thuật toán cạnh nhau |
+
+`output/` đang có sẵn 5 file mẫu ứng với `input/sample.csv`:
+`np_result.csv`, `np_gantt.csv`, `p_result.csv`, `p_gantt.csv`, `comparison.csv`.
+
+Trong GUI, bảng chỉ hiển thị tối đa 10.000 dòng để không treo với dữ liệu lớn; file CSV xuất
+vẫn đủ toàn bộ. Gantt có nhiều đoạn hơn số pixel sẽ tự chuyển sang chế độ thu gọn.
+
+Chọn **Chế độ chạy**:
+
+- **Chỉ Non-Preemptive** — chỉ chạy NP, xuất `np_result.csv`, `np_gantt.csv`.
+- **Chỉ Preemptive** — chỉ chạy P, xuất `p_result.csv`, `p_gantt.csv`.
+- **Cả hai + so sánh** — chạy cả hai, xuất đủ 5 file.
 
 ## Kiểm thử và hiệu năng
 
@@ -152,7 +182,8 @@ Hoặc chạy trực tiếp từng bộ test:
 - Framework: **doctest** (`tests/third_party/doctest.h`), mỗi bộ test có `doctest_main.cpp` riêng.
 - Unit test: `tests/unit/<thành viên>/` — expected vs actual cho case bình thường, IDLE, hòa điểm, preemption, input lỗi.
 - Integration test: `tests/integration/` — pipeline `CSV → 2 scheduler → Metrics → ghi file`.
-- Benchmark: dãy 1 → 10 → 50 → 100 → 150 → 200 → 500 → 1.000 → 5.000 → 10.000 → 50.000 → 100.000 → 500.000 → 1.000.000 tiến trình, sinh bằng `./build/generate_perf`, số liệu trong `report/`.
+- GUI test: `tests/gui/` — 9 test / 96 assertion, chạy headless qua `QT_QPA_PLATFORM=offscreen`.
+- Benchmark: dãy 1 → 10 → 50 → 100 → 150 → 200 → 500 → 1.000 → 5.000 → 10.000 → 50.000 → 100.000 → 500.000 → 1.000.000 tiến trình, sinh bằng `./build/generate_perf`; runner đo và số liệu trong `report/` đang được bổ sung.
 - Test cuối do Leader nghiệm thu: chạy `samples/sample.csv` qua cả hai thuật toán, đối chiếu `output/` với bảng chuẩn trong `docs/conventions.md`.
 
 ## Tài liệu và phân công
@@ -162,11 +193,12 @@ Hoặc chạy trực tiếp từng bộ test:
 | [docs/api.md](docs/api.md) | Hợp đồng API v1.0 + bảng kết quả chuẩn |
 | [docs/conventions.md](docs/conventions.md) | Quy ước chung — pháp nhân: Leader |
 | [docs/test-cases/](docs/test-cases/) | Bộ test case chia theo thành viên |
-| docs/plan.md | Kế hoạch 8 tuần *(chưa tạo)* |
-| docs/csv-handler.md | Module CSV I/O *(chưa tạo)* |
+| [docs/algorithms.md](docs/algorithms.md) | Pseudocode và flowchart hai thuật toán |
+| [docs/plan.md](docs/plan.md) | Kế hoạch 8 tuần và trạng thái |
+| [docs/csv-handler.md](docs/csv-handler.md) | Module CSV I/O |
 | [docs/NonPreemptive.md](docs/NonPreemptive.md) | Thuật toán non-preemptive |
 | [docs/Preemptive.md](docs/Preemptive.md) | Thuật toán preemptive |
-| docs/GUI.md | Giao diện Qt *(chưa tạo)* |
+| [docs/GUI.md](docs/GUI.md) | Giao diện Qt |
 
 Nhánh git: `feature/csv`, `feature/non-preemptive`, `feature/preemptive`, `feature/gui` → PR vào `main`.
 Mỗi thành viên commit đều đặn hằng tuần và ghi rõ nội dung commit (không để repository im 3 tuần liên tiếp).

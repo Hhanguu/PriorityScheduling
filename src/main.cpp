@@ -1,22 +1,14 @@
+#include <QApplication>
 
-#include <iostream>
+#include "ui/MainWindow.h"
 
-#include "core/Process.h"
-#include "core/GanttSegment.h"
-#include "core/ScheduleResult.h"
+int main(int argc, char *argv[]) {
+    QApplication app(argc, argv);
+    QApplication::setApplicationName("Priority Scheduling");
+    QApplication::setApplicationVersion("1.0");
 
-int main() {
-    Process p{1, 0, 5, 2};
-    GanttSegment segment{p.pid, 0, 5};
+    MainWindow window;
+    window.show();
 
-    ScheduleResult result;
-    result.gantt.push_back(segment);
-
-    std::cout << "Priority Scheduling\n";
-    std::cout << "PID: " << p.pid << '\n';
-    std::cout << "Gantt: "
-              << segment.startTime << " -> "
-              << segment.endTime << '\n';
-
-    return 0;
+    return app.exec();
 }

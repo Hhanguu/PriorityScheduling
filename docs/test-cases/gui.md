@@ -12,7 +12,7 @@
 | U06 | Trung bình | hiện 2 chữ số `8.00`, `7.80`, khớp `ket_qua/gui/sample_*_result.csv` | C |
 | U07 | Bảng rỗng | bấm chạy → thông báo, không chia 0 | C |
 | U08 | pid trùng khi nhập tay | báo lỗi, không gọi scheduler | N |
-| U09 | Xuất CSV | đủ 5 file trong `output/` | C |
+| U09 | Xuất CSV | chế độ cả hai: đủ 5 file; chế độ riêng: 2 file tương ứng | C |
 | U10 | Resize | Gantt vẽ lại đúng, không tràn | N |
 | U11 | Nạp `gui/gui_large_500.csv` | bảng 500 dòng, cuộn mượt, không treo | N |
 | U12 | Nạp `gui/sample_20.csv` | bảng 20 dòng, chạy NP/P ra Gantt có ngắt | C |
