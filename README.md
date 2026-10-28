@@ -120,6 +120,23 @@ build\PriorityScheduling.exe
 build\Debug\PriorityScheduling.exe
 ```
 
+## Demo
+
+Video demo (2:19, chưa thuyết minh): https://www.youtube.com/watch?v=X099N5kWD74
+
+Kịch bản demo 2–3 phút (không cần thuyết minh, thêm caption chữ):
+
+1. Nạp `samples/sample.csv` (10 tiến trình).
+2. Chọn **Cả hai + so sánh** → bấm **Chạy lập lịch**.
+3. Xem bảng kết quả CT/TAT/WT/RT, Gantt chart và bảng so sánh NP/P.
+4. Bấm **Xuất file kết quả** → mở thư mục, kiểm tra 5 file CSV.
+5. Nạp một CSV sai header (sửa dòng đầu của `samples/sample.csv`) → xem thông báo lỗi,
+   dữ liệu cũ vẫn được giữ.
+6. Nạp `input/perf_10000.csv` → xem nhãn `Benchmark` (P khoảng 2 giây ở bản Release).
+
+Lưu ý: video quay bằng bản **Debug** nên số đo trong video lớn hơn bảng 8 trong báo cáo
+(NP chậm hơn ~2,7 lần, P chậm hơn ~4,4 lần). Số Release dùng trong báo cáo.
+
 ## Dữ liệu đầu vào
 
 File CSV, header cố định `pid,arrival,burst,priority` (ưu tiên: số nhỏ = ưu tiên cao):
