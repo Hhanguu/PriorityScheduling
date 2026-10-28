@@ -59,6 +59,7 @@ private:
     QLabel *lblAvgWaiting = nullptr;
     QLabel *lblAvgTurnaround = nullptr;
     QLabel *lblAvgResponse = nullptr;
+    QLabel *lblElapsed = nullptr;
 
     std::vector<Process> inputProcesses;
     ScheduleResult npResult;
@@ -66,4 +67,6 @@ private:
     bool npReady = false;
     bool pReady = false;
     bool resultsReady = false;
+    qint64 npElapsedMs = 0;
+    qint64 pElapsedMs = 0;
 };

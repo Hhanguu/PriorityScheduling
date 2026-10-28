@@ -9,11 +9,13 @@
 #include <QAbstractItemView>
 #include <QComboBox>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFileDialog>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include <QLocale>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSignalBlocker>
@@ -153,10 +155,14 @@ void MainWindow::setupUI() {
     lblAvgWaiting->setObjectName("lblAvgWaiting");
     lblAvgTurnaround->setObjectName("lblAvgTurnaround");
     lblAvgResponse->setObjectName("lblAvgResponse");
+    lblElapsed = new QLabel(this);
+    lblElapsed->setObjectName("lblElapsed");
+    lblElapsed->setStyleSheet("color: #79c0ff; font-weight: bold;");
     metricsLayout->addWidget(lblAvgWaiting);
     metricsLayout->addWidget(lblAvgTurnaround);
     metricsLayout->addWidget(lblAvgResponse);
     metricsLayout->addStretch();
+    metricsLayout->addWidget(lblElapsed);
     mainLayout->addLayout(metricsLayout);
 
     setCentralWidget(centralWidget);
@@ -200,12 +206,27 @@ void MainWindow::handleRunSchedule() {
         return;
     }
 
+    const auto fmt = [](qint64 ms) {
+        if (ms <= 0) {
+            return QStringLiteral("<1 ms");
+        }
+        return QLocale(QLocale::Vietnamese).toString(ms) + QStringLiteral(" ms");
+    };
+
     if (npReady && pReady) {
-        statusBar()->showMessage("Đã chạy xong cả hai thuật toán.");
+        statusBar()->showMessage(
+            QString("Đã chạy xong cả hai thuật toán: NP %1, P %2.")
+                .arg(fmt(npElapsedMs), fmt(pElapsedMs)));
+        lblElapsed->setText(
+            QString("Benchmark: NP %1 | P %2").arg(fmt(npElapsedMs), fmt(pElapsedMs)));
     } else if (npReady) {
-        statusBar()->showMessage("Đã chạy xong Non-Preemptive.");
+        statusBar()->showMessage(
+            QString("Đã chạy xong Non-Preemptive trong %1.").arg(fmt(npElapsedMs)));
+        lblElapsed->setText(QString("Benchmark: NP %1").arg(fmt(npElapsedMs)));
     } else {
-        statusBar()->showMessage("Đã chạy xong Preemptive.");
+        statusBar()->showMessage(
+            QString("Đã chạy xong Preemptive trong %1.").arg(fmt(pElapsedMs)));
+        lblElapsed->setText(QString("Benchmark: P %1").arg(fmt(pElapsedMs)));
     }
 }
 
@@ -279,6 +300,11 @@ void MainWindow::resetResults() {
     npReady = false;
     pReady = false;
     resultsReady = false;
+    npElapsedMs = 0;
+    pElapsedMs = 0;
+    if (lblElapsed != nullptr) {
+        lblElapsed->clear();
+    }
     if (btnExport != nullptr) {
         btnExport->setEnabled(false);
     }
@@ -324,12 +350,18 @@ bool MainWindow::runSchedules(QString *errorMessage) {
     pReady = false;
 
     if (mode == 0 || mode == 2) {
+        QElapsedTimer timer;
+        timer.start();
         npResult = NonPreemptiveScheduler::schedule(inputProcesses);
+        npElapsedMs = timer.elapsed();
         Metrics::fillAverages(npResult);
         npReady = true;
     }
     if (mode == 1 || mode == 2) {
+        QElapsedTimer timer;
+        timer.start();
         pResult = PreemptiveScheduler::schedule(inputProcesses);
+        pElapsedMs = timer.elapsed();
         Metrics::fillAverages(pResult);
         pReady = true;
     }
