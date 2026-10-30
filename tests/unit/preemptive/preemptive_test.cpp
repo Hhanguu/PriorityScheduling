@@ -1,4 +1,6 @@
 #include "doctest.h"
+#include <algorithm>
+#include <chrono>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -43,6 +45,64 @@ void checkGantt(const ScheduleResult& actual, const std::vector<std::vector<long
         CHECK(actual.gantt[i].endTime == expectedGantt[i][2]);
     }
 }
+
+void checkInvariants(const std::vector<Process>& processes, const ScheduleResult& actual) {
+    REQUIRE(actual.processes.size() == processes.size());
+    CHECK(actual.averageWaitingTime == 0.0);
+    CHECK(actual.averageTurnaroundTime == 0.0);
+    CHECK(actual.averageResponseTime == 0.0);
+
+    for (std::size_t i = 0; i < processes.size(); ++i) {
+        const Process& p = processes[i];
+        const ProcessResult& r = actual.processes[i];
+        CAPTURE(i);
+        CAPTURE(p.pid);
+        CHECK(r.pid == p.pid);
+        CHECK(r.turnaroundTime == r.completionTime - p.arrivalTime);
+        CHECK(r.waitingTime == r.turnaroundTime - p.burstTime);
+
+        long long firstStart = -1;
+        for (const auto& seg : actual.gantt) {
+            if (seg.pid == p.pid) {
+                firstStart = seg.startTime;
+                break;
+            }
+        }
+        REQUIRE(firstStart >= 0);
+        CHECK(r.responseTime == firstStart - p.arrivalTime);
+    }
+
+    long long maxCompletion = 0;
+    for (const auto& r : actual.processes) maxCompletion = std::max(maxCompletion, r.completionTime);
+
+    long long coverage = 0;
+    for (std::size_t i = 0; i < actual.gantt.size(); ++i) {
+        const auto& seg = actual.gantt[i];
+        CAPTURE(i);
+        CAPTURE(seg.pid);
+        CHECK(seg.endTime > seg.startTime);
+        if (i == 0) {
+            CHECK(seg.startTime == 0);
+        } else {
+            CHECK(seg.startTime == actual.gantt[i - 1].endTime);
+            CHECK(seg.pid != actual.gantt[i - 1].pid);
+        }
+        coverage += seg.endTime - seg.startTime;
+    }
+    if (!actual.gantt.empty()) {
+        CHECK(actual.gantt.back().endTime == maxCompletion);
+        CHECK(coverage == maxCompletion);
+    }
+
+    for (const auto& p : processes) {
+        long long ran = 0;
+        for (const auto& seg : actual.gantt) {
+            if (seg.pid == p.pid) ran += seg.endTime - seg.startTime;
+        }
+        CAPTURE(p.pid);
+        CHECK(ran == p.burstTime);
+    }
+}
 } // namespace
 
 TEST_CASE("Preemptive Priority Scheduling Tests P01-P18") {
@@ -51,6 +111,20 @@ TEST_CASE("Preemptive Priority Scheduling Tests P01-P18") {
         CHECK(res.processes.empty());
         CHECK(res.gantt.empty());
         CHECK(res.averageWaitingTime == 0.0);
+        checkInvariants({}, res);
+    }
+
+    SUBCASE("Bất biến chung — mọi bộ dữ liệu P01–P18") {
+        for (const std::string name : {
+                 "sample", "preempt_same_priority", "multi_preempt", "preempt_boundary",
+                 "idle_start", "idle_middle", "priority_order", "tie_arrival",
+                 "unsorted_arrival", "preempt_fcfs", "preempt_staircase",
+                 "preempt_alternate", "tie_same_arrival", "p_large_100",
+                 "p_large_1000", "sample_20"}) {
+            CAPTURE(name);
+            const auto processes = input(name);
+            checkInvariants(processes, PreemptiveScheduler::schedule(processes));
+        }
     }
 
     SUBCASE("P01 & P02 — Sample chuẩn, RT và dữ liệu lớn") {
@@ -276,19 +350,29 @@ TEST_CASE("Preemptive Priority Scheduling Tests P01-P18") {
         CHECK(actual.gantt[0].pid == -1);
         CHECK(actual.gantt[0].startTime == 0);
         CHECK(actual.gantt[0].endTime == 2);
-        CHECK(actual.gantt.size() > 100);
+        CHECK(actual.gantt.size() == 109);
+        long long coverage = 0;
+        for (const auto& seg : actual.gantt) coverage += seg.endTime - seg.startTime;
+        CHECK(coverage == 594);
     }
 
     SUBCASE("P17 — Dữ liệu lớn 1000 process") {
         auto processes = input("p_large_1000");
+        const auto begin = std::chrono::steady_clock::now();
         auto actual = PreemptiveScheduler::schedule(processes);
+        const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - begin).count();
         CHECK(actual.processes.size() == 1000);
-        CHECK(actual.gantt.size() > 1000);
+        CHECK(actual.gantt.size() == 1069);
         long long maxEnd = 0;
+        long long coverage = 0;
         for (const auto& seg : actual.gantt) {
             if (seg.endTime > maxEnd) maxEnd = seg.endTime;
+            coverage += seg.endTime - seg.startTime;
         }
         CHECK(maxEnd == 5546);
+        CHECK(coverage == 5546);
+        CHECK(elapsedMs < 2000);
     }
 
     SUBCASE("P18 — Demo 20 process") {
