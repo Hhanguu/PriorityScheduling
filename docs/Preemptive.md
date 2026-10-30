@@ -22,22 +22,23 @@ Module Preemptive Scheduler là **bộ não xử lý thuật toán** cho biến 
 | Mọi trường thời gian là `long long` | Tránh tràn số khi thời gian chờ (WT) quá lớn. |
 
 ### 1.3. Các vấn đề kỹ thuật cần xử lý
-- **Lưu trạng thái thời gian còn lại (Remaining Burst Time):** Do bị ngắt quãng liên tục, cần một mảng phụ để lưu `remainingBurstTime` cho từng tiến trình.
+- **Lưu trạng thái thời gian còn lại (Remaining Burst Time):** Do bị ngắt quãng liên tục, cần một mảng phụ `remainingBurst` để lưu thời gian còn lại của từng tiến trình.
 - **Ghi nhận `startTime`:** Chỉ ghi nhận thời điểm bắt đầu (để tính Response Time) ở lần đầu tiên tiến trình được cấp CPU.
 - **Gộp đoạn Gantt:** Nếu cùng một tiến trình chạy ở 2 thời điểm liên tiếp (hoặc CPU IDLE liên tiếp), phải gộp lại thành một đoạn duy nhất trong mảng `gantt` (theo mục 7 của conventions).
+- **Hiệu năng:** Không mô phỏng từng đơn vị thời gian. Cài đặt dùng **hàng đợi ưu tiên (min-heap)** cho ready queue và **nhảy theo sự kiện** (arrival / preemption / hết burst), nhờ đó 100.000 tiến trình chạy dưới 1 giây (xem mục 7).
 
 ## 2. Mô tả các chức năng chính và nhiệm vụ của từng thành phần
 
 | Thành phần | Nhiệm vụ |
 |---|---|
 | `PreemptiveScheduler.h` | Khai báo class `PreemptiveScheduler` với 1 hàm public duy nhất là `schedule()`. |
-| `PreemptiveScheduler.cpp` | Cài đặt logic thuật toán: vòng lặp tìm tiến trình ưu tiên cao nhất, xử lý ngắt quãng. |
+| `PreemptiveScheduler.cpp` | Cài đặt logic thuật toán: min-heap theo priority, xử lý ngắt quãng theo sự kiện, ghi Gantt và các chỉ số. |
 | `Process`, `ScheduleResult`, `GanttSegment` | Các cấu trúc dữ liệu dùng chung (đã được định nghĩa trong thư mục `core/`). |
 
 ### Chức năng chính của PreemptiveScheduler
-1. **Tìm tiến trình ưu tiên:** Tìm trong danh sách các tiến trình đã đến và chưa chạy xong, chọn ra tiến trình có Priority nhỏ nhất (xử lý tie-breaker nếu bằng nhau).
-2. **Xử lý ngắt quãng (Preemption):** Chạy tiến trình trong 1 đơn vị thời gian. Sau đó kiểm tra lại xem có tiến trình mới nào đến với Priority cao hơn không để ngắt.
-3. **Cập nhật Gantt Chart:** Ghi nhận các mốc thời gian (`startTime`, `endTime`) của từng tiến trình, gộp các đoạn liền kề cùng PID.
+1. **Tìm tiến trình ưu tiên:** Duy trì ready queue bằng `std::priority_queue` (min-heap) theo khóa `(priority, arrivalTime, thứ tự input)`; mỗi lần chỉ lấy phần tử đầu hàng.
+2. **Xử lý ngắt quãng (Preemption):** Tiến trình hiện tại chạy tới **sự kiện kế tiếp** — hết burst, có arrival mới, hoặc bị arrival có priority nhỏ hơn ngắt. Không lặp theo từng đơn vị thời gian.
+3. **Cập nhật Gantt Chart:** Ghi nhận các mốc thời gian (`startTime`, `endTime`) của từng đoạn chạy, gộp các đoạn liền kề cùng PID (kể cả IDLE `pid = -1`).
 4. **Trả kết quả (Không tính trung bình):** Tính CT, TAT, WT, RT cho từng tiến trình. **Không** tự tính các giá trị trung bình (việc này do module `Metrics` đảm nhận theo quy định).
 
 ## 3. Hướng dẫn sử dụng
@@ -84,23 +85,25 @@ Dữ liệu vào: P1 (AT 0, BT 8, Pri 3), P2 (AT 1, BT 4, Pri 1), P3 (AT 2, BT 2
 ## 4. Flow hoạt động
 
 ### 4.1. Luồng xử lý thuật toán (bên trong hàm `schedule`)
-1. **Khởi tạo:** 
-   - Nhận danh sách tiến trình. Khởi tạo `currentTime = 0`, `completed = 0`.
-   - Tạo mảng `remainingBurstTime` copy từ `burstTime`.
-   - Tạo mảng `startTime` gán bằng `-1` (để đánh dấu chưa chạy lần nào).
+1. **Khởi tạo:**
+   - Nếu danh sách rỗng, trả `ScheduleResult` rỗng ngay.
+   - Tạo `result.processes` kích thước `n`; copy `remainingBurst = burstTime`; gán `startTime = -1` cho mọi tiến trình.
+   - Tạo mảng chỉ số `arrivals` `0..n-1` và `stable_sort` theo `arrivalTime` (giữ nguyên thứ tự input khi AT bằng nhau).
+   - Khởi tạo ready queue là `std::priority_queue` (min-heap) với khóa so sánh: `priority` nhỏ hơn → `arrivalTime` nhỏ hơn → chỉ số input nhỏ hơn.
+   - `currentTime = 0`, `nextArrivalIdx = 0`, `completed = 0`.
 2. **Vòng lặp (chạy đến khi `completed == n`):**
-   - **Bước 1 - Tìm tiến trình:** Duyệt danh sách, tìm tiến trình thỏa mãn `arrivalTime <= currentTime` và `remainingBurstTime > 0`. Áp dụng quy tắc: `priority` nhỏ nhất -> `arrivalTime` nhỏ nhất -> thứ tự nhập ban đầu (thứ tự dòng CSV).
-   - **Bước 2 - Xử lý IDLE:** Nếu không tìm thấy tiến trình nào (CPU rảnh), tìm thời điểm `arrivalTime` nhỏ nhất của các tiến trình chưa chạy. Ghi nhận đoạn Gantt `pid = -1` từ `currentTime` đến `arrivalTime` đó. Cập nhật `currentTime = arrivalTime`. Quay lại Bước 1.
-   - **Bước 3 - Thực thi:**
-     - Nếu `startTime` của tiến trình đang là `-1`, gán `startTime = currentTime`.
-     - Giảm `remainingBurstTime` đi 1.
-     - Tăng `currentTime` lên 1.
-     - Ghi nhận đoạn Gantt cho tiến trình này (nếu PID trùng với đoạn ngay trước đó thì nới rộng `endTime`, nếu không thì tạo đoạn mới).
-   - **Bước 4 - Kiểm tra hoàn thành:**
-     - Nếu `remainingBurstTime == 0`: Tính `CT = currentTime`, `TAT = CT - AT`, `WT = TAT - BT`, `RT = startTime - AT`.
-     - Lưu kết quả vào danh sách `ProcessResult`.
-     - Tăng `completed` lên 1.
-3. **Kết thúc:** Trả về đối tượng `ScheduleResult` (Các trường trung bình để mặc định, không tính ở đây).
+   - **Bước 1 - Nạp arrival:** Đẩy mọi tiến trình có `arrivalTime <= currentTime` vào ready queue.
+   - **Bước 2 - Xử lý IDLE:** Nếu ready queue rỗng, nhảy `currentTime` đến `arrivalTime` của tiến trình kế tiếp, ghi/gộp đoạn Gantt `pid = -1` từ `currentTime` cũ đến mốc mới, rồi quay lại Bước 1.
+   - **Bước 3 - Chọn tiến trình:** Lấy `curr = ready.top()` và pop khỏi hàng đợi.
+   - **Bước 4 - Xác định sự kiện kế tiếp:** Đặt `nextEventTime = currentTime + remainingBurst[curr]`, rồi duyệt các arrival có `arrivalTime < nextEventTime`:
+     - Nếu arrival có `priority` nhỏ hơn `priority` của `curr`: đặt `nextEventTime = arrivalTime` và dừng duyệt (bị ngắt).
+     - Ngược lại (priority bằng hoặc lớn hơn): đẩy arrival vào ready queue và duyệt tiếp.
+     - Dùng điều kiện `<` để arrival đúng biên `nextEventTime` không tạo đoạn 0 giây; arrival đó sẽ được nạp ở vòng lặp sau.
+   - **Bước 5 - Thực thi:** Nếu `startTime[curr] == -1` thì gán `startTime[curr] = currentTime`. Giảm `remainingBurst[curr] -= nextEventTime - currentTime`, cập nhật `currentTime = nextEventTime`, ghi/gộp đoạn Gantt `[start, end)` (trùng PID với đoạn trước thì nới `endTime`).
+   - **Bước 6 - Kiểm tra hoàn thành:**
+     - Nếu `remainingBurst[curr] == 0`: Tính `CT = currentTime`, `TAT = CT - AT`, `WT = TAT - BT`, `RT = startTime - AT`; lưu `ProcessResult`; tăng `completed`.
+     - Ngược lại: đẩy `curr` trở lại ready queue.
+3. **Kết thúc:** Trả về `ScheduleResult` (ba trường trung bình để mặc định `0.0`, không tính ở đây).
 
 ### 4.2. Luồng tổng thể của chương trình
 
@@ -110,25 +113,31 @@ Dữ liệu vào: P1 (AT 0, BT 8, Pri 3), P2 (AT 1, BT 4, Pri 1), P3 (AT 2, BT 2
                          ▼
             PreemptiveScheduler::schedule()
                          │
-                         ├──► Khởi tạo mảng remainingBurstTime, currentTime = 0
+                         ├──► Khởi tạo remainingBurst, startTime = -1, currentTime = 0
+                         ├──► Sắp xếp chỉ số theo AT (stable_sort)
+                         ├──► Ready queue = min-heap (priority, AT, thứ tự input)
                          │
                          ▼
             [Vòng lặp: completed < n]
                          │
-                         ├──► Tìm tiến trình có Priority nhỏ nhất (AT <= currentTime)
+                         ├──► Nạp mọi arrival có AT <= currentTime vào ready
                          │
-                         ├──► Nếu không có: 
+                         ├──► Nếu ready rỗng:
                          │       - Nhảy currentTime đến AT gần nhất
-                         │       - Ghi Gantt IDLE (-1)
+                         │       - Ghi/gộp Gantt IDLE (-1)
                          │
-                         ├──► Nếu có: 
-                         │       - Ghi nhận startTime (lần đầu chạy)
-                         │       - Chạy 1 đơn vị: remainingBurstTime--, currentTime++
-                         │       - Ghi nhận GanttSegment (gộp nếu trùng PID)
+                         ├──► Nếu có: curr = ready.top()
+                         │       - nextEventTime = currentTime + remainingBurst[curr]
+                         │       - Duyệt arrival có AT < nextEventTime:
+                         │           + priority nhỏ hơn curr → ngắt tại AT
+                         │           + ngược lại → đẩy vào ready
+                         │       - Ghi startTime (lần đầu), chạy tới nextEventTime
+                         │       - Ghi/gộp GanttSegment (gộp nếu trùng PID)
                          │
-                         └──► Nếu remainingBurstTime == 0:
+                         └──► Nếu remainingBurst[curr] == 0:
                                  - Tính CT, TAT, WT, RT
-                                 - Lưu vào ProcessResult, completed++
+                                 - Lưu ProcessResult, completed++
+                              Ngược lại: đẩy curr lại ready
                          │
                          ▼
                   ScheduleResult (trả về)
@@ -149,6 +158,10 @@ Metrics (tính trung bình)         CSV / UI (ghi file, vẽ biểu đồ)
 src/core/
   PreemptiveScheduler.h
   PreemptiveScheduler.cpp
+tests/unit/preemptive/
+  preemptive_test.cpp          # P01–P18 (doctest)
+src/
+  benchmark_main.cpp           # target benchmark_runner, đo hiệu năng theo file CSV
 ```
 
 ### 5.2. Thiết kế Class (Tuân thủ tuyệt đối mục 4 - conventions.md)
@@ -163,22 +176,42 @@ public:
 - **Hàm `static`:** Vì thuật toán không cần lưu trữ trạng thái (stateless), dùng hàm static giúp gọi hàm dễ dàng từ `main` hoặc từ test mà không cần khởi tạo object.
 - **Không phụ thuộc Qt/File:** Module này hoàn toàn "trong sạch", chỉ nhận dữ liệu từ danh sách đầu vào và trả về kết quả, đảm bảo tính đóng gói và dễ test độc lập.
 - **Không tự tính trung bình:** Scheduler chỉ tính toán các chỉ số của từng tiến trình. Việc tính điểm trung bình (Avg WT, Avg TAT, Avg RT) được giao lại hoàn toàn cho module `Metrics` để đảm bảo đúng phân vai (mục 6 - conventions.md).
-- **Xử lý IDLE thông minh:** Theo quy tắc số 6, thay vì tăng thời gian lên từng đơn vị một khi không có tiến trình nào chạy, thuật toán sẽ nhảy cóc (`jump`) thời gian đến ngay thời điểm `arrivalTime` của tiến trình tiếp theo để tối ưu hiệu suất.
+- **Hàng đợi ưu tiên + nhảy sự kiện:** Ready queue dùng `std::priority_queue` thay vì quét toàn bộ danh sách mỗi tick; mỗi tiến trình chỉ được đẩy/pop `O(log n)`. Thời gian được nhảy thẳng tới sự kiện kế tiếp (arrival, preemption hoặc hết burst) thay vì cộng từng đơn vị, nhờ đó độ phức tạp giảm từ `O(n × T)` xuống `O(n log n + g)` (`g` là số đoạn Gantt).
+- **Xử lý IDLE thông minh:** Khi ready queue rỗng, thuật toán nhảy `currentTime` đến ngay `arrivalTime` của tiến trình tiếp theo và ghi một đoạn Gantt `pid = -1`, không tăng thời gian từng đơn vị.
+- **Benchmark tách riêng:** `benchmark_runner` chỉ đo thời gian `schedule()`, không ảnh hưởng hợp đồng của module.
 
-## 6. Kế hoạch kiểm thử độc lập
+## 6. Kiểm thử độc lập
 
-Test đặt trong `tests/unit/PreemptiveScheduler_test.cpp`, sử dụng doctest.
+Test đặt trong `tests/unit/preemptive/preemptive_test.cpp`, sử dụng doctest. Các case P01–P15 và P18 kiểm tra **từng đoạn Gantt** (pid, start, end) cùng CT/TAT/WT/RT và averages; P16–P17 kiểm tra số đoạn Gantt, mốc IDLE đầu, tổng thời gian phủ và các bất biến.
 
-| Trường hợp | Kỳ vọng |
-|---|---|
-| Danh sách rỗng | Trả về `ScheduleResult` rỗng. |
-| Input bình thường (không bị ngắt) | Priority giảm dần theo thời gian, Gantt khớp, các chỉ số CT/TAT/WT/RT đúng. |
-| Có bị ngắt quãng (Preemption) | Tiến trình đang chạy bị dừng, Gantt thể hiện rõ các đoạn bị cắt, kết quả TAT/WT khớp với tính toán bằng tay. |
-| CPU rảnh (IDLE) | Gantt có đoạn `pid = -1`, thời gian `currentTime` nhảy đúng đến AT gần nhất. |
-| Hòa Priority | Xét tiếp AT nhỏ hơn, nếu vẫn hòa thì theo thứ tự nhập ban đầu (thứ tự dòng CSV). |
+| Case | Dữ liệu | Kỳ vọng chính |
+|---|---|---|
+| P01, P02 | `sample.csv` | Gantt và kết quả khớp `ket_qua/preemptive/sample_p_*.csv`; averages 7.80 / 11.30 / 5.30; P1 bị ngắt nhưng `RT = 0`. |
+| P03 | `preempt_same_priority.csv` | Priority bằng nhau không bị ngắt; averages 3.80 / 5.50 / 3.80. |
+| P04 | `multi_preempt.csv` | Nhiều lần ngắt, các đoạn bị cắt không bị gộp; averages 3.20 / 5.60 / 0.30. |
+| P05 | `preempt_boundary.csv` | Arrival đúng biên không sinh đoạn 0 giây; averages 1.80 / 4.00 / 1.20. |
+| P06, P07 | `idle_start.csv`, `idle_middle.csv` | Gantt có đoạn `-1`, IDLE đầu/giữa đúng mốc; averages lần lượt 4.10 / 5.80 / 3.90 và 1.20 / 2.80 / 1.20. |
+| P08 | `priority_order.csv` | Priority nhỏ hơn thắng; averages 18.00 / 22.00 / 18.00. |
+| P09 | `tie_arrival.csv` | Hòa priority xét AT nhỏ hơn; averages 2.00 / 4.10 / 2.00. |
+| P10 | `unsorted_arrival.csv` | Không sort input; kết quả giữ thứ tự input; averages 0.50 / 2.50 / 0.30. |
+| P11 | `preempt_fcfs.csv` | Cùng priority chạy lần lượt; averages 4.80 / 6.70 / 4.80. |
+| P12 | `preempt_staircase.csv` | Bị ngắt 9 lần, P1 đúng 2 đoạn tổng 15; averages 0.90 / 3.30 / 0.00. |
+| P13 | `preempt_alternate.csv` | P1 bị ngắt 5 lần, có 6 đoạn tổng 10; averages 1.30 / 3.60 / 0.00. |
+| P14 | `tie_same_arrival.csv` | Hòa priority và AT thì theo thứ tự input (30, 10, 20, ...), không sort theo pid; averages 13.30 / 15.80 / 13.30. |
+| P15 | `{}` | `processes` và `gantt` rỗng, averages `0.0`. |
+| P16 | `p_large_100.csv` | Đủ 100 process, IDLE đầu `-1[0-2]`, tổng phủ 594, Gantt 109 đoạn > 100. |
+| P17 | `p_large_1000.csv` | Đủ 1000 process, đoạn cuối kết thúc ở 5546, Gantt 1069 đoạn > 1000. |
+| P18 | `sample_20.csv` | Khớp fixture, Gantt 25 đoạn phủ `[0-80]`; averages 21.60 / 25.60 / 18.45. |
 
-## 7. Tiến độ
-- [x] Nghiên cứu thuật toán, hoàn thiện tài liệu và cập nhật đúng quy ước `conventions.md` (tuần này).
-- [ ] Cài đặt code `PreemptiveScheduler.cpp` (tuần sau).
-- [ ] Viết test độc lập bằng doctest.
-- [ ] Tạo PR vào nhánh `main`.
+Bất biến được kiểm tra ở mọi case:
+- Kết quả giữ đúng thứ tự input; `WT = TAT - BT`, `TAT = CT - AT`, `RT = ST - AT`.
+- Gantt phủ kín `[0, max(CT)]`, liên tục, không đoạn 0 giây, đoạn liền kề cùng PID đã gộp.
+- Ba trường `average*` do scheduler để mặc định `0.0`; test gọi `Metrics::fillAverages()` khi cần so sánh averages.
+
+## 7. Tiến độ và kết quả
+- [x] Nghiên cứu thuật toán, hoàn thiện tài liệu và cập nhật đúng quy ước `conventions.md`.
+- [x] Cài đặt `PreemptiveScheduler.cpp` với ready queue là min-heap và mô phỏng theo sự kiện.
+- [x] Viết test P01–P18 bằng doctest, kiểm tra chi tiết Gantt và các chỉ số.
+- [x] Tối ưu hiệu năng: 100.000 tiến trình khoảng **0,3–0,5 giây** (trước tối ưu khoảng 311 giây); 500.000 tiến trình khoảng 2,8 giây (bản Debug).
+- [x] Giữ nguyên chữ ký `schedule()` và kết quả `sample.csv`: **7.80 / 11.30 / 5.30**.
+- [x] Tạo PR #37 (`feature/preemptive` → `main`).

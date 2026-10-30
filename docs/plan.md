@@ -11,7 +11,7 @@ trên cùng dữ liệu CSV, có test, benchmark và tài liệu nghiệm thu.
 | 1 | Khung repo, CMake, quy ước, hợp đồng API | `CMakeLists.txt`, `docs/conventions.md`, `docs/api.md` | Xong |
 | 2 | Module CSV | `CsvHandler`, test C01–C25 | Xong |
 | 3 | Non-preemptive | scheduler, test N01–N12 | Xong |
-| 4 | Preemptive | scheduler, test P01–P18 | Logic xong; test mới có 1 case, chưa đúng fixture |
+| 4 | Preemptive | scheduler, test P01–P18 | Xong (min-heap + event-based, đủ P01–P18) |
 | 5 | GUI skeleton + tích hợp | `MainWindow`, `GanttChart`, test U01–U13 | Xong (local) |
 | 6 | Hoàn thiện GUI | Gantt, bảng so sánh, xuất đủ 5 file | Xong (local) |
 | 7 | Benchmark, tối ưu | runner đo, `report/`, dãy 1 → 1.000.000 | Chưa |
@@ -24,7 +24,7 @@ trên cùng dữ liệu CSV, có test, benchmark và tài liệu nghiệm thu.
 - Core không phụ thuộc Qt: `Process`, `GanttSegment`, `ScheduleResult`, `Metrics`.
 - `NonPreemptiveScheduler` và `PreemptiveScheduler`.
 - `CsvHandler` đọc/ghi CSV.
-- Unit test CSV và Non-preemptive; preemptive mới có một case.
+- Unit test CSV, Non-preemptive và Preemptive đầy đủ P01–P18 (kiểm tra toàn bộ Gantt và averages).
 - GUI đã nối: mở cửa sổ, nạp CSV, chọn chạy riêng NP/P hoặc cả hai, vẽ Gantt,
   hiện averages/so sánh, xuất file tương ứng.
 - `tests/gui/`: 9 test / 96 assertion, `ctest` có 3 bộ test.
@@ -32,17 +32,16 @@ trên cùng dữ liệu CSV, có test, benchmark và tài liệu nghiệm thu.
 
 Còn thiếu:
 
-- Preemptive mới có 1 case, chưa đúng fixture; test P01–P18 còn thiếu.
 - `tests/integration/` vẫn là stub.
-- `src/benchmark/Benchmark.cpp/.h` rỗng; chưa có runner và `report/`.
-- Preemptive quét tuần tự `O(n²)`, chưa đáp ứng dãy benchmark lớn.
+- `src/benchmark/Benchmark.cpp/.h` rỗng; đã có `benchmark_runner` nhưng chưa ghi `report/`.
 - PR #33 (`feature/gui`) không build sạch; GUI đang sửa trên nhánh local `feature/gui-fixed`.
+- Preemptive đã tối ưu: min-heap + event-based, 100k process ~0,3–0,5 giây (bản Debug).
 
 ## 3. Thứ tự ưu tiên
 
-1. Hoàn thiện test preemptive theo P01–P18 và test tích hợp I01–I08.
+1. Test preemptive P01–P18 đã xong; còn test tích hợp I01–I08.
 2. Kiểm tra thủ công GUI U04/U10/U11 trên máy có màn hình; chụp ảnh/video demo.
-3. Viết benchmark runner, đo dãy nhỏ trước, tối ưu preemptive nếu cần.
+3. `benchmark_runner` đã có và preemptive đã tối ưu; còn ghi kết quả vào `report/`.
 4. Cập nhật README/docs, kiểm tra build/test rồi tạo PR từ nhánh GUI mới.
 
 ## 4. Điều kiện nghiệm thu
@@ -59,7 +58,7 @@ Còn thiếu:
 
 | Rủi ro | Ảnh hưởng | Cách xử lý |
 |---|---|---|
-| Preemptive `O(n²)` | Không đạt benchmark 100k–1M | Dùng heap/priority queue hoặc event-based |
+| Preemptive `O(n²)` | Không đạt benchmark 100k–1M | Đã xử lý: min-heap + event-based (`O(n log n + g)`), 100k process ~0,4 giây |
 | PR #33 chứa file rỗng | Không merge được | Đóng PR, dùng nhánh local `feature/gui-fixed` |
 | Test preemptive quá mỏng | Lỗi lọt vào `main` | Đọc fixture, so full Gantt và averages |
 | GUI chưa nối | Không demo được | Ưu tiên sau test core |

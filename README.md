@@ -11,8 +11,9 @@ thời gian (CT, TAT, WT, RT), hiển thị bảng kết quả và **Gantt Chart
 xuất kết quả ra **CSV**. Giao diện desktop viết bằng **Qt6 Widgets** (không phải console / Web App).
 
 > Trạng thái: core CSV, Non-preemptive, Preemptive và GUI đã chạy được; GUI cho chọn
-> chạy riêng NP, riêng P hoặc cả hai. Test preemptive, integration và benchmark còn thiếu.
-> Xem [docs/plan.md](docs/plan.md).
+> chạy riêng NP, riêng P hoặc cả hai. Preemptive đã đủ test P01–P18 và được tối ưu
+> (100.000 tiến trình ~0,4 giây, bản Debug). Integration test và báo cáo benchmark
+> trong `report/` vẫn còn thiếu. Xem [docs/plan.md](docs/plan.md).
 
 ## Công nghệ
 
@@ -32,7 +33,7 @@ src/
               NonPreemptiveScheduler, PreemptiveScheduler, Metrics
   io/         CsvHandler — đọc/ghi CSV
   ui/         MainWindow, GanttChart (Qt)
-  benchmark/  placeholder — chưa có runner đo hiệu năng
+  benchmark_main.cpp — runner đo hiệu năng (target benchmark_runner)
 tools/        generate_perf.cpp — sinh dữ liệu benchmark
 samples/      sample.csv, sample_20.csv
 input/        sample.csv, sample_20.csv
@@ -198,9 +199,11 @@ Hoặc chạy trực tiếp từng bộ test:
 
 - Framework: **doctest** (`tests/third_party/doctest.h`), mỗi bộ test có `doctest_main.cpp` riêng.
 - Unit test: `tests/unit/<thành viên>/` — expected vs actual cho case bình thường, IDLE, hòa điểm, preemption, input lỗi.
+- Preemptive: đủ P01–P18 (`tests/unit/preemptive/preemptive_test.cpp`), so từng đoạn Gantt, CT/TAT/WT/RT và averages với fixture trong `tests/data/ket_qua/preemptive/`.
 - Integration test: `tests/integration/` — pipeline `CSV → 2 scheduler → Metrics → ghi file`.
 - GUI test: `tests/gui/` — 9 test / 96 assertion, chạy headless qua `QT_QPA_PLATFORM=offscreen`.
-- Benchmark: dãy 1 → 10 → 50 → 100 → 150 → 200 → 500 → 1.000 → 5.000 → 10.000 → 50.000 → 100.000 → 500.000 → 1.000.000 tiến trình, sinh bằng `./build/generate_perf`; runner đo và số liệu trong `report/` đang được bổ sung.
+- Benchmark: sinh dữ liệu bằng `./build/generate_perf`, đo bằng `./build/benchmark_runner <file.csv>`.
+  Bản Debug hiện tại: 100.000 tiến trình ~0,4 giây; 500.000 tiến trình ~2,8 giây. Số liệu trong `report/` đang được bổ sung.
 - Test cuối do Leader nghiệm thu: chạy `samples/sample.csv` qua cả hai thuật toán, đối chiếu `output/` với bảng chuẩn trong `docs/conventions.md`.
 
 ## Tài liệu và phân công
