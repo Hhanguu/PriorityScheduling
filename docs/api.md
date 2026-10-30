@@ -121,7 +121,7 @@ Hợp đồng:
 - Không sửa `processes` đầu vào (nhận `const&`).
 - Tie-break: **priority nhỏ hơn → AT nhỏ hơn → thứ tự trong vector**. Không xét `pid`.
 - Non-preemptive: đã chọn chạy hết BT.
-- Preemptive: mỗi 1 đơn vị thời gian kiểm tra lại; gộp đoạn Gantt liền kề.
+- Preemptive: dùng ready queue là min-heap theo `(priority, AT, thứ tự input)` và mô phỏng theo sự kiện (arrival/preemption/hết burst); gộp đoạn Gantt liền kề.
 - Trả kết quả theo I1–I8.
 
 ---

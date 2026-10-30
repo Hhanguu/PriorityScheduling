@@ -1,85 +1,105 @@
 #include "core/PreemptiveScheduler.h"
 #include <algorithm>
 #include <climits>
+#include <numeric>
+#include <queue>
 
 ScheduleResult PreemptiveScheduler::schedule(const std::vector<Process>& processes) {
     ScheduleResult result;
-    int n = processes.size();
+    int n = static_cast<int>(processes.size());
     if (n == 0) return result;
 
-    std::vector<long long> remainingBurstTime(n);
+    result.processes.resize(n);
+    std::vector<long long> remainingBurst(n);
     std::vector<long long> startTime(n, -1);
 
     for (int i = 0; i < n; ++i) {
-        remainingBurstTime[i] = processes[i].burstTime;
+        remainingBurst[i] = processes[i].burstTime;
     }
 
+    std::vector<std::size_t> arrivals(n);
+    std::iota(arrivals.begin(), arrivals.end(), std::size_t{0});
+    std::stable_sort(arrivals.begin(), arrivals.end(), [&](std::size_t a, std::size_t b) {
+        return processes[a].arrivalTime < processes[b].arrivalTime;
+    });
+
+    auto cmp = [&](std::size_t a, std::size_t b) {
+        if (processes[a].priority != processes[b].priority) {
+            return processes[a].priority > processes[b].priority; // min-heap: smaller priority value first
+        }
+        if (processes[a].arrivalTime != processes[b].arrivalTime) {
+            return processes[a].arrivalTime > processes[b].arrivalTime;
+        }
+        return a > b;
+    };
+
+    std::priority_queue<std::size_t, std::vector<std::size_t>, decltype(cmp)> ready(cmp);
+
     long long currentTime = 0;
+    std::size_t nextArrivalIdx = 0;
     int completed = 0;
-    result.processes.resize(n);
 
     while (completed < n) {
-        int bestIdx = -1;
-        int highestPriority = INT_MAX;
-        long long earliestArrival = LLONG_MAX;
-
-        for (int i = 0; i < n; ++i) {
-            if (processes[i].arrivalTime <= currentTime && remainingBurstTime[i] > 0) {
-                if (processes[i].priority < highestPriority) {
-                    highestPriority = processes[i].priority;
-                    earliestArrival = processes[i].arrivalTime;
-                    bestIdx = i;
-                }
-                else if (processes[i].priority == highestPriority) {
-                    if (processes[i].arrivalTime < earliestArrival) {
-                        earliestArrival = processes[i].arrivalTime;
-                        bestIdx = i;
-                    }
-                }
-            }
+        while (nextArrivalIdx < n && processes[arrivals[nextArrivalIdx]].arrivalTime <= currentTime) {
+            ready.push(arrivals[nextArrivalIdx++]);
         }
 
-        if (bestIdx == -1) {
-            long long nextArrival = LLONG_MAX;
-            for (int i = 0; i < n; ++i) {
-                if (remainingBurstTime[i] > 0 && processes[i].arrivalTime > currentTime) {
-                    nextArrival = std::min(nextArrival, processes[i].arrivalTime);
-                }
-            }
-            if (nextArrival == LLONG_MAX) break;
-
+        if (ready.empty()) {
+            if (nextArrivalIdx >= n) break;
+            long long nextTime = processes[arrivals[nextArrivalIdx]].arrivalTime;
             if (!result.gantt.empty() && result.gantt.back().pid == -1) {
-                result.gantt.back().endTime = nextArrival;
+                result.gantt.back().endTime = nextTime;
+            } else {
+                result.gantt.push_back({ -1, currentTime, nextTime });
             }
-            else {
-                result.gantt.push_back({ -1, currentTime, nextArrival });
-            }
-            currentTime = nextArrival;
+            currentTime = nextTime;
             continue;
         }
 
-        if (startTime[bestIdx] == -1) startTime[bestIdx] = currentTime;
+        std::size_t curr = ready.top();
+        ready.pop();
 
-        if (!result.gantt.empty() && result.gantt.back().pid == processes[bestIdx].pid) {
-            result.gantt.back().endTime = currentTime + 1;
+        long long nextEventTime = currentTime + remainingBurst[curr];
+
+        while (nextArrivalIdx < n && processes[arrivals[nextArrivalIdx]].arrivalTime < nextEventTime) {
+            std::size_t arrIdx = arrivals[nextArrivalIdx];
+            if (processes[arrIdx].priority < processes[curr].priority) {
+                nextEventTime = processes[arrIdx].arrivalTime;
+                break;
+            } else {
+                ready.push(arrIdx);
+                nextArrivalIdx++;
+            }
         }
-        else {
-            result.gantt.push_back({ processes[bestIdx].pid, currentTime, currentTime + 1 });
+
+        if (startTime[curr] == -1) {
+            startTime[curr] = currentTime;
         }
 
-        remainingBurstTime[bestIdx]--;
-        currentTime++;
+        long long dt = nextEventTime - currentTime;
+        remainingBurst[curr] -= dt;
 
-        if (remainingBurstTime[bestIdx] == 0) {
+        if (!result.gantt.empty() && result.gantt.back().pid == processes[curr].pid) {
+            result.gantt.back().endTime = nextEventTime;
+        } else {
+            result.gantt.push_back({ processes[curr].pid, currentTime, nextEventTime });
+        }
+
+        currentTime = nextEventTime;
+
+        if (remainingBurst[curr] == 0) {
             completed++;
             ProcessResult pr;
-            pr.pid = processes[bestIdx].pid;
+            pr.pid = processes[curr].pid;
             pr.completionTime = currentTime;
-            pr.turnaroundTime = pr.completionTime - processes[bestIdx].arrivalTime;
-            pr.waitingTime = pr.turnaroundTime - processes[bestIdx].burstTime;
-            pr.responseTime = startTime[bestIdx] - processes[bestIdx].arrivalTime;
-            result.processes[bestIdx] = pr;
+            pr.turnaroundTime = pr.completionTime - processes[curr].arrivalTime;
+            pr.waitingTime = pr.turnaroundTime - processes[curr].burstTime;
+            pr.responseTime = startTime[curr] - processes[curr].arrivalTime;
+            result.processes[curr] = pr;
+        } else {
+            ready.push(curr);
         }
     }
+
     return result;
 }
