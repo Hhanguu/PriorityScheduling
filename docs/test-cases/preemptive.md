@@ -1,6 +1,7 @@
 # Test case — Preemptive
 
-Dữ liệu nằm trong `tests/data/preemptive/`. Mọi file case đều **10 process**.
+Dữ liệu nằm trong `tests/data/preemptive/`. Các case P01–P15 dùng **10 process**;
+P16 dùng 100 process, P17 dùng 1000 process, P18 dùng 20 process.
 Kết quả mỗi tiến trình ghi dạng (CT, TAT, WT, RT).
 
 ## P01 — Sample chuẩn (C)

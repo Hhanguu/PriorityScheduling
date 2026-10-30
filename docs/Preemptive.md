@@ -7,7 +7,7 @@ Nhánh: `feature/preemptive` · File phụ trách: `src/core/PreemptiveScheduler
 ## 1. Nghiên cứu về phần mình đảm nhiệm
 
 ### 1.1. Vai trò của module Preemptive Scheduler
-Module Preemptive Scheduler là **bộ não xử lý thuật toán** cho biến thể lập lịch ưu tiên độc quyền:
+Module Preemptive Scheduler là **bộ não xử lý thuật toán** cho biến thể lập lịch ưu tiên có tiếm quyền (preemptive):
 - **Đầu vào:** Nhận danh sách tiến trình (đã được đọc và kiểm tra hợp lệ từ module CSV).
 - **Đầu ra:** Trả về cấu trúc `ScheduleResult` chứa thông tin chi tiết của từng tiến trình (CT, TAT, WT, RT) và biểu đồ Gantt.
 - **Cơ chế cốt lõi:** Nếu một tiến trình mới đến có độ ưu tiên cao hơn (số Priority nhỏ hơn) tiến trình đang chạy, CPU sẽ ngay lập tức bị thu hồi (preempt) để nhường cho tiến trình mới.
@@ -16,7 +16,7 @@ Module Preemptive Scheduler là **bộ não xử lý thuật toán** cho biến 
 | Quy ước | Ảnh hưởng đến Scheduler |
 |---|---|
 | Priority nhỏ hơn = ưu tiên cao hơn | Thuật toán luôn tìm giá trị `priority` nhỏ nhất trong hàng đợi. |
-| Cùng priority: AT nhỏ hơn được chọn trước; nếu vẫn bằng thì theo **thứ tự nhập ban đầu** | Cần duyệt danh sách theo thứ tự dòng CSV ban đầu để làm tiêu chí phụ (tie-breaker). |
+| Cùng priority: AT nhỏ hơn được chọn trước; nếu vẫn bằng thì theo **thứ tự nhập ban đầu** | Ready queue dùng `(priority, arrivalTime, chỉ số dòng CSV)` làm khóa so sánh, không phụ thuộc `pid`. |
 | Không có tiến trình sẵn sàng thì CPU ở trạng thái IDLE | Ghi nhận đoạn Gantt với `pid = -1` đến thời điểm AT gần nhất. |
 | Không có chi phí chuyển ngữ cảnh (Context switch) | Thời gian chạy các tiến trình nối tiếp nhau không bị cộng thêm delay. |
 | Mọi trường thời gian là `long long` | Tránh tràn số khi thời gian chờ (WT) quá lớn. |
@@ -203,15 +203,15 @@ Test đặt trong `tests/unit/preemptive/preemptive_test.cpp`, sử dụng docte
 | P17 | `p_large_1000.csv` | Đủ 1000 process, đoạn cuối kết thúc ở 5546, Gantt 1069 đoạn > 1000. |
 | P18 | `sample_20.csv` | Khớp fixture, Gantt 25 đoạn phủ `[0-80]`; averages 21.60 / 25.60 / 18.45. |
 
-Bất biến được kiểm tra ở mọi case:
+Bất biến của module:
 - Kết quả giữ đúng thứ tự input; `WT = TAT - BT`, `TAT = CT - AT`, `RT = ST - AT`.
-- Gantt phủ kín `[0, max(CT)]`, liên tục, không đoạn 0 giây, đoạn liền kề cùng PID đã gộp.
+- Gantt phủ kín `[0, max(CT)]`, liên tục, không đoạn 0 giây, đoạn liền kề cùng PID đã gộp (kiểm tra trực tiếp qua danh sách đoạn kỳ vọng ở P01–P15, P18).
 - Ba trường `average*` do scheduler để mặc định `0.0`; test gọi `Metrics::fillAverages()` khi cần so sánh averages.
 
 ## 7. Tiến độ và kết quả
 - [x] Nghiên cứu thuật toán, hoàn thiện tài liệu và cập nhật đúng quy ước `conventions.md`.
 - [x] Cài đặt `PreemptiveScheduler.cpp` với ready queue là min-heap và mô phỏng theo sự kiện.
-- [x] Viết test P01–P18 bằng doctest, kiểm tra chi tiết Gantt và các chỉ số.
+- [x] Viết test P01–P18 bằng doctest, kiểm tra chi tiết Gantt và các chỉ số. Toàn bộ `unit_tests` hiện có 53 test case / 5497 assertion, tất cả đều pass.
 - [x] Tối ưu hiệu năng: 100.000 tiến trình khoảng **0,3–0,5 giây** (trước tối ưu khoảng 311 giây); 500.000 tiến trình khoảng 2,8 giây (bản Debug).
 - [x] Giữ nguyên chữ ký `schedule()` và kết quả `sample.csv`: **7.80 / 11.30 / 5.30**.
 - [x] Tạo PR #37 (`feature/preemptive` → `main`).
