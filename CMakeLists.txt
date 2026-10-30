@@ -65,6 +65,14 @@ target_compile_options(generate_perf PRIVATE ${PS_WARNINGS})
 set_target_properties(generate_perf PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
 
 # ---------------------------------------------------------------------------
+# Đo hiệu năng: ./build/benchmark_runner [file.csv]
+# ---------------------------------------------------------------------------
+add_executable(benchmark_runner src/benchmark_main.cpp)
+target_link_libraries(benchmark_runner PRIVATE ps_core)
+target_compile_options(benchmark_runner PRIVATE ${PS_WARNINGS})
+set_target_properties(benchmark_runner PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+
+# ---------------------------------------------------------------------------
 # Kiểm thử (tự nhận file mới, không cần sửa CMake khi thêm test)
 # ---------------------------------------------------------------------------
 option(BUILD_TESTING "Build unit tests" ON)
