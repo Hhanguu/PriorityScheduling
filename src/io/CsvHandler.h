@@ -7,7 +7,9 @@
 class CsvHandler {
 public:
     // Đọc + validate. Thành công: true, out có dữ liệu theo đúng thứ tự dòng.
-    // Thất bại: false, error chứa thông báo (tiếng Việt, kèm số dòng).
+    // Thất bại: false, out rỗng, error chứa thông báo (tiếng Việt, kèm số dòng).
+    // Lỗi dữ liệu được gom theo dòng: mỗi dòng sai là một dòng "Dòng N: lý do" trong error
+    // (nối bằng '\n', tối đa 100 dòng đầu). Riêng sai header thì chỉ báo lỗi header và dừng.
     static bool readProcesses(const std::string& path,
                               std::vector<Process>& out,
                               std::string& error);

@@ -64,6 +64,35 @@ struct TempFile {
     }
 };
 
+// Đếm số lần một đoạn chữ xuất hiện (dùng để đếm số dòng "Dòng N: ..." trong thông báo lỗi).
+int countOccurrences(const std::string& text, const std::string& part) {
+    int count = 0;
+    for (std::size_t pos = text.find(part); pos != std::string::npos; pos = text.find(part, pos + part.size())) {
+        ++count;
+    }
+    return count;
+}
+
+// Số dòng (ngăn bằng '\n') của một đoạn chữ không rỗng.
+int countLines(const std::string& text) {
+    return text.empty() ? 0 : countOccurrences(text, "\n") + 1;
+}
+
+// Ghi content vào file tạm, đọc thử bằng readProcesses và trả kết quả để test kiểm tra.
+struct ReadOutcome {
+    bool ok = false;
+    std::vector<Process> out;
+    std::string error;
+};
+
+ReadOutcome readText(const std::string& name, const std::string& content) {
+    TempFile file(name);
+    writeText(file.path, content);
+    ReadOutcome r;
+    r.ok = CsvHandler::readProcesses(file.path, r.out, r.error);
+    return r;
+}
+
 std::vector<Process> readOk(const std::string& relative) {
     std::vector<Process> out;
     std::string error = "chưa gọi";
@@ -325,20 +354,94 @@ TEST_CASE("pid bang 0 hoac am bi tu choi") {
     CHECK(contains(error, "pid"));
 }
 
-TEST_CASE("thua cot va so thuc deu bi tu choi") {
-    TempFile extra("extra_col.csv");
-    writeText(extra.path, "pid,arrival,burst,priority\n1,0,5,3,7\n");
-    std::vector<Process> p;
-    std::string error;
-    CHECK_FALSE(CsvHandler::readProcesses(extra.path, p, error));
-    CHECK(contains(error, "Dòng 2"));
-    CHECK(contains(error, "4 cột"));
+// Test biên: mỗi kiểu lỗi một case riêng để case nào đỏ thì biết ngay sai ở loại nào.
 
-    TempFile real("real_number.csv");
-    writeText(real.path, "pid,arrival,burst,priority\n1,0,5.5,3\n");
-    CHECK_FALSE(CsvHandler::readProcesses(real.path, p, error));
-    CHECK(contains(error, "Dòng 2"));
-    CHECK(contains(error, "burst"));
+TEST_CASE("bien: thua cot bi tu choi") {
+    const ReadOutcome r = readText("extra_col.csv", "pid,arrival,burst,priority\n1,0,5,3,7\n");
+    CHECK_FALSE(r.ok);
+    CHECK(r.out.empty());
+    CHECK(contains(r.error, "Dòng 2"));
+    CHECK(contains(r.error, "cần 4 cột, có 5"));
+}
+
+TEST_CASE("bien: thieu cot bi tu choi") {
+    const ReadOutcome r = readText("missing_col.csv", "pid,arrival,burst,priority\n1,0,5\n");
+    CHECK_FALSE(r.ok);
+    CHECK(r.out.empty());
+    CHECK(contains(r.error, "Dòng 2"));
+    CHECK(contains(r.error, "cần 4 cột, có 3"));
+}
+
+TEST_CASE("bien: so thuc bi tu choi") {
+    const ReadOutcome r = readText("real_number.csv", "pid,arrival,burst,priority\n1,0,5.5,3\n");
+    CHECK_FALSE(r.ok);
+    CHECK(contains(r.error, "Dòng 2"));
+    CHECK(contains(r.error, "burst"));
+    CHECK(contains(r.error, "không phải số nguyên"));
+}
+
+TEST_CASE("bien: pid trung bi tu choi") {
+    const ReadOutcome r = readText("dup_pid.csv", "pid,arrival,burst,priority\n7,0,5,3\n7,1,2,1\n");
+    CHECK_FALSE(r.ok);
+    CHECK(r.out.empty());
+    CHECK(contains(r.error, "Dòng 3"));
+    CHECK(contains(r.error, "pid 7 bị trùng"));
+}
+
+TEST_CASE("bien: burst am bi tu choi") {
+    const ReadOutcome r = readText("neg_burst.csv", "pid,arrival,burst,priority\n1,0,-4,3\n");
+    CHECK_FALSE(r.ok);
+    CHECK(r.out.empty());
+    CHECK(contains(r.error, "Dòng 2"));
+    CHECK(contains(r.error, "burst"));
+}
+
+TEST_CASE("bien: burst bang 0 bi tu choi") {
+    const ReadOutcome r = readText("zero_burst.csv", "pid,arrival,burst,priority\n1,0,0,3\n");
+    CHECK_FALSE(r.ok);
+    CHECK(contains(r.error, "Dòng 2"));
+    CHECK(contains(r.error, "burst"));
+}
+
+TEST_CASE("bien: arrival am bi tu choi") {
+    const ReadOutcome r = readText("neg_arrival.csv", "pid,arrival,burst,priority\n1,-1,5,3\n");
+    CHECK_FALSE(r.ok);
+    CHECK(r.out.empty());
+    CHECK(contains(r.error, "Dòng 2"));
+    CHECK(contains(r.error, "arrival"));
+}
+
+TEST_CASE("bien: arrival bang 0 la hop le") {
+    const ReadOutcome r = readText("zero_arrival.csv", "pid,arrival,burst,priority\n1,0,5,3\n");
+    CHECK(r.ok);
+    REQUIRE(r.out.size() == 1);
+    CHECK(r.out[0].arrivalTime == 0);
+}
+
+TEST_CASE("bien: dong trong xen giua khong gay loi va van dem dung so dong") {
+    const ReadOutcome ok = readText("blank_mid.csv", "pid,arrival,burst,priority\n\n1,0,5,3\n\n\n2,1,3,2\n");
+    CHECK(ok.ok);
+    CHECK(ok.out.size() == 2);
+
+    // Dòng trống vẫn được đếm: dòng sai nằm ở dòng vật lý số 5.
+    const ReadOutcome bad = readText("blank_then_bad.csv", "pid,arrival,burst,priority\n\n1,0,5,3\n\n2,1,0,2\n");
+    CHECK_FALSE(bad.ok);
+    CHECK(contains(bad.error, "Dòng 5"));
+}
+
+TEST_CASE("bien: chi co dong trong sau header bao khong co tien trinh") {
+    const ReadOutcome r = readText("only_blank.csv", "pid,arrival,burst,priority\n\n   \n\t\n");
+    CHECK_FALSE(r.ok);
+    CHECK(r.out.empty());
+    CHECK(contains(r.error, "không có tiến trình"));
+}
+
+TEST_CASE("bien: file rong bao loi header") {
+    const ReadOutcome r = readText("empty_file.csv", "");
+    CHECK_FALSE(r.ok);
+    CHECK(r.out.empty());
+    CHECK(contains(r.error, "Dòng 1"));
+    CHECK(contains(r.error, "header"));
 }
 
 TEST_CASE("so qua lon khong lam crash") {
@@ -372,6 +475,115 @@ TEST_CASE("thong bao loi la UTF-8 dung byte") {
     const std::string e = readFail("csv/err_zero_burst.csv");
     // "Dòng" ở dạng UTF-8: D, o, dấu huyền (C3 B2), n, g
     CHECK(e.compare(0, 5, "D\xC3\xB2ng") == 0);
+}
+
+// ---------------------------------------------------------------------------
+// 2b. Gom mọi lỗi theo dòng (không dừng ở lỗi đầu tiên)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("gom loi: moi dong sai mot dong thong bao, dong hop le khong bi bao") {
+    const ReadOutcome r = readText("multi_errors.csv",
+                                   "pid,arrival,burst,priority\n"
+                                   "1,0,5,3\n"    // dòng 2: hợp lệ
+                                   "2,1,0,2\n"    // dòng 3: burst = 0
+                                   "3,2,4\n"      // dòng 4: thiếu cột
+                                   "4,x,3,1\n"    // dòng 5: arrival không phải số
+                                   "5,3,2,2\n"    // dòng 6: hợp lệ
+                                   "1,4,2,1\n"    // dòng 7: pid 1 trùng với dòng 2
+                                   "6,-1,2,2\n"); // dòng 8: arrival âm
+    CHECK_FALSE(r.ok);
+    CHECK(r.out.empty());
+
+    CHECK(contains(r.error, "Dòng 3: burst"));
+    CHECK(contains(r.error, "Dòng 4: cần 4 cột, có 3"));
+    CHECK(contains(r.error, "Dòng 5: arrival không phải số nguyên"));
+    CHECK(contains(r.error, "Dòng 7: pid 1 bị trùng"));
+    CHECK(contains(r.error, "Dòng 8: arrival"));
+
+    CHECK_FALSE(contains(r.error, "Dòng 2"));
+    CHECK_FALSE(contains(r.error, "Dòng 6"));
+    CHECK(countOccurrences(r.error, "Dòng ") == 5);
+    CHECK(countLines(r.error) == 5); // mỗi lỗi nằm trên một dòng riêng
+}
+
+TEST_CASE("gom loi: loi duoc liet ke theo dung thu tu dong trong file") {
+    const ReadOutcome r = readText("order_errors.csv",
+                                   "pid,arrival,burst,priority\n"
+                                   "1,0,0,3\n"
+                                   "2,0,0,3\n"
+                                   "3,0,0,3\n");
+    CHECK_FALSE(r.ok);
+    const std::size_t a = r.error.find("Dòng 2");
+    const std::size_t b = r.error.find("Dòng 3");
+    const std::size_t c = r.error.find("Dòng 4");
+    REQUIRE(a != std::string::npos);
+    REQUIRE(b != std::string::npos);
+    REQUIRE(c != std::string::npos);
+    CHECK(a < b);
+    CHECK(b < c);
+}
+
+TEST_CASE("gom loi: mot dong sai nhieu cho chi bao loi dau tien cua dong do") {
+    // arrival không phải số VÀ burst = 0: chỉ báo một lỗi cho dòng 2 (lỗi gặp trước).
+    const ReadOutcome r = readText("one_per_line.csv", "pid,arrival,burst,priority\n1,x,0,3\n");
+    CHECK_FALSE(r.ok);
+    CHECK(contains(r.error, "Dòng 2: arrival"));
+    CHECK_FALSE(contains(r.error, "burst"));
+    CHECK(countOccurrences(r.error, "Dòng ") == 1);
+}
+
+TEST_CASE("gom loi: pid cua dong sai khong bi tinh la da dung") {
+    // Dòng 2 sai (burst = 0) nên pid 1 chưa được "dùng"; dòng 3 dùng pid 1 là hợp lệ, không bị báo trùng.
+    const ReadOutcome r = readText("pid_of_bad_row.csv", "pid,arrival,burst,priority\n1,0,0,3\n1,1,5,2\n");
+    CHECK_FALSE(r.ok);
+    CHECK(contains(r.error, "Dòng 2: burst"));
+    CHECK_FALSE(contains(r.error, "Dòng 3"));
+    CHECK_FALSE(contains(r.error, "trùng"));
+}
+
+TEST_CASE("gom loi: dong trong khong tinh la loi nhung van dem so dong") {
+    const ReadOutcome r = readText("blank_between_errors.csv",
+                                   "pid,arrival,burst,priority\n"
+                                   "\n"
+                                   "2,1,0,2\n"
+                                   "\n"
+                                   "3,2,4\n");
+    CHECK_FALSE(r.ok);
+    CHECK(contains(r.error, "Dòng 3"));
+    CHECK(contains(r.error, "Dòng 5"));
+    CHECK(countOccurrences(r.error, "Dòng ") == 2);
+}
+
+TEST_CASE("gom loi: sai header thi chi bao header va dung") {
+    const ReadOutcome r = readText("bad_header_and_rows.csv", "pid,at,bt,prio\n1,0,0,3\n2,1,5\n");
+    CHECK_FALSE(r.ok);
+    CHECK(contains(r.error, "Dòng 1"));
+    CHECK(contains(r.error, "header"));
+    CHECK(countOccurrences(r.error, "Dòng ") == 1);
+}
+
+TEST_CASE("gom loi: file hop le thi error rong") {
+    const ReadOutcome r = readText("all_good.csv", "pid,arrival,burst,priority\n1,0,5,3\n2,1,3,2\n");
+    CHECK(r.ok);
+    CHECK(r.error.empty());
+    CHECK(r.out.size() == 2);
+}
+
+TEST_CASE("gom loi: chi liet ke 100 dong dau, phan con lai gop thanh mot dong") {
+    std::string content = "pid,arrival,burst,priority\n";
+    for (int i = 0; i < 150; ++i) {
+        content += "1,0,0,3\n"; // 150 dòng đều sai (burst = 0), từ dòng 2 đến dòng 151
+    }
+    const ReadOutcome r = readText("many_errors.csv", content);
+    CHECK_FALSE(r.ok);
+    CHECK(r.out.empty());
+
+    CHECK(contains(r.error, "Dòng 2:"));
+    CHECK(contains(r.error, "Dòng 101:"));        // lỗi thứ 100
+    CHECK_FALSE(contains(r.error, "Dòng 102:"));  // lỗi thứ 101 không được liệt kê
+    CHECK(countOccurrences(r.error, "Dòng ") == 100);
+    CHECK(contains(r.error, "và 50 dòng lỗi khác"));
+    CHECK(countLines(r.error) == 101);            // 100 dòng lỗi + 1 dòng tổng kết
 }
 
 // ---------------------------------------------------------------------------

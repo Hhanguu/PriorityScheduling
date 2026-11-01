@@ -134,27 +134,50 @@ std::string error;
 std::vector<Process> processes;
 
 if (!CsvHandler::readProcesses("samples/sample.csv", processes, error)) {
-    // MainWindow hiển thị error lên dialog; ví dụ: "Dòng 3: burst phải > 0"
+    // MainWindow hiển thị error lên dialog; ví dụ: "Dòng 3: burst phải trong khoảng 1 đến 1000000000000"
     return;
 }
 // processes giờ có thể truyền cho cả hai scheduler
 ```
 
 - **Đầu vào:** đường dẫn file.
-- **Đầu ra:** trả về `true` nếu thành công; `processes` chứa dữ liệu theo đúng thứ tự dòng. Trả về `false` nếu lỗi; `error` chứa thông báo tiếng Việt kèm số dòng. Không ném exception.
+- **Đầu ra:** trả về `true` nếu thành công; `processes` chứa dữ liệu theo đúng thứ tự dòng. Trả về `false` nếu lỗi; `processes` rỗng và `error` chứa thông báo tiếng Việt kèm số dòng. **Mọi dòng sai đều được báo trong một lần đọc** (mỗi dòng sai một dòng trong `error`, nối bằng `
+`). Không ném exception.
 
 ### 3.3. Ví dụ file sai và phản ứng của chương trình
 
 | Nội dung dòng | Thông báo lỗi |
 |---|---|
-| `2,1,4` | "Dòng N: thiếu cột (cần 4 cột)" |
-| `2,1,-4,1` | "Dòng N: burst phải > 0" |
-| `2,-1,4,1` | "Dòng N: arrival phải >= 0" |
-| `2,x,4,1` | "Dòng N: arrival không phải số nguyên" |
-| `0,1,4,1` | "Dòng N: pid phải > 0" |
-| `1,0,8,3` xuất hiện hai lần | "Dòng N: pid 1 bị trùng" |
-| file không tồn tại | "Không mở được file ..." |
-| file chỉ có header | "File không có tiến trình nào" |
+| `2,1,4` | "Dòng N: cần 4 cột, có 3" |
+| `2,1,4,1,9` | "Dòng N: cần 4 cột, có 5" |
+| `2,1,-4,1` hoặc `2,1,0,1` | "Dòng N: burst phải trong khoảng 1 đến 1000000000000" |
+| `2,-1,4,1` | "Dòng N: arrival phải trong khoảng 0 đến 1000000000000" |
+| `2,x,4,1` hoặc `2,1,5.5,1` | "Dòng N: arrival không phải số nguyên" (hoặc `burst ...`) |
+| `0,1,4,1` | "Dòng N: pid phải trong khoảng 1 đến 2147483647" |
+| `1,0,8,3` xuất hiện hai lần | "Dòng N: pid 1 bị trùng" (báo ở lần xuất hiện thứ hai) |
+| header sai | "Dòng 1: header phải là pid,arrival,burst,priority" (chỉ báo lỗi này rồi dừng) |
+| file không tồn tại | "Không mở được file: ..." |
+| file chỉ có header hoặc chỉ có dòng trống | "File không có tiến trình nào" |
+
+**Gom mọi lỗi theo dòng.** Khi file có nhiều dòng sai, `readProcesses` đọc hết file rồi báo tất cả một lần, không dừng ở lỗi đầu tiên. Ví dụ file:
+
+```
+pid,arrival,burst,priority
+1,0,5,3          <- hợp lệ
+2,1,0,2          <- burst = 0
+3,2,4            <- thiếu cột
+1,4,2,1          <- pid 1 trùng với dòng 2
+```
+
+cho `error` gồm ba dòng:
+
+```
+Dòng 3: burst phải trong khoảng 1 đến 1000000000000
+Dòng 4: cần 4 cột, có 3
+Dòng 5: pid 1 bị trùng
+```
+
+Quy tắc: mỗi dòng sai báo **một** lỗi (lỗi gặp trước trong dòng đó); dòng hợp lệ và dòng trống không bị báo (dòng trống vẫn được đếm khi tính số dòng); `pid` của một dòng sai không bị tính là "đã dùng"; chỉ liệt kê tối đa 100 dòng lỗi đầu, phần còn lại gộp thành "... và N dòng lỗi khác"; sai header thì chỉ báo lỗi header vì không hiểu được các cột.
 
 ### 3.4. Cách gọi hàm ghi và định dạng file đầu ra
 
@@ -238,9 +261,10 @@ Cả hai chạy trên cùng danh sách `processes` do CSV đọc ra, rồi kết
 3. Đọc dòng đầu tiên là header, kiểm tra đúng `pid,arrival,burst,priority`.
 4. Với mỗi dòng còn lại: bỏ qua dòng trống, cắt khoảng trắng, tách theo dấu phẩy.
 5. Kiểm tra số cột, chuyển sang số nguyên, kiểm tra ràng buộc (pid > 0 và duy nhất, arrival >= 0, burst > 0).
-6. Tạo `Process` và thêm vào cuối `vector` (giữ thứ tự nhập).
-7. Hết file: kiểm tra có ít nhất một tiến trình, trả `vector` cho nơi gọi.
-8. Nếu có lỗi, `MainWindow` hiển thị thông báo lỗi tại cửa sổ chính.
+6. Dòng hợp lệ: tạo `Process` và thêm vào cuối danh sách tạm (giữ thứ tự nhập). Dòng sai: ghi `Dòng N: lý do` vào danh sách lỗi rồi **đọc tiếp**, không dừng.
+7. Hết file: nếu có ít nhất một dòng sai thì trả `false` kèm toàn bộ lỗi (nối bằng `
+`) và `out` rỗng. Nếu không có lỗi mà danh sách rỗng thì báo "File không có tiến trình nào". Ngược lại chuyển danh sách tạm sang `out` và trả `true`.
+8. Nếu có lỗi, `MainWindow` hiển thị toàn bộ thông báo lỗi trong hộp thoại.
 
 ### 4.2. Luồng tổng thể của chương trình
 
@@ -299,7 +323,7 @@ PriorityScheduling/
 | `writeProcessResults(path, result, error)` | đường dẫn, `ScheduleResult` | `bool`, lỗi | Ghi `pid,CT,TAT,WT,RT` |
 | `writeGantt(path, result, error)` | đường dẫn, `ScheduleResult` | `bool`, lỗi | Ghi `pid,start,end` đúng như nhận được |
 | `writeComparison(path, np, p, error)` | hai `ScheduleResult` | `bool`, lỗi | Ghi `metric,np,p` từ số liệu có sẵn |
-| hàm nội bộ `splitLine`, `trim`, `parseInt` | chuỗi | các trường / số nguyên | Hỗ trợ tách và chuyển đổi, không public |
+| hàm nội bộ `trim`, `splitLine`, `parseInteger`, `parseRow`, `lineMessage`, `writeFile` | chuỗi / dòng / đường dẫn | các trường, số nguyên, thông báo lỗi, file đã ghi | Hỗ trợ tách, chuyển đổi, kiểm tra từng dòng và ghi file; không public (nằm trong namespace ẩn) |
 
 ### 5.3. Quyết định thiết kế
 
@@ -308,6 +332,9 @@ PriorityScheduling/
 - **Chỉ phụ thuộc `Process`, `ScheduleResult`, `GanttSegment`**: không phụ thuộc scheduler hay Qt, nên test độc lập được.
 - **Chỉ định dạng, không tính toán**: mọi số liệu do scheduler và `Metrics` cung cấp.
 - **Kiểm tra dữ liệu ngay khi đọc**: scheduler có thể tin rằng đầu vào đã hợp lệ.
+- **Gom mọi lỗi theo dòng**: người dùng thấy tất cả dòng sai trong một lần, không phải sửa từng lỗi rồi nạp lại. Chữ ký hàm giữ nguyên (`std::string& error`), nhiều lỗi được nối bằng `
+`. Sai header là ngoại lệ: dừng ngay vì không hiểu được các cột.
+- **Chỉ giao dữ liệu khi cả file hợp lệ**: `out` chỉ có hai trạng thái, đủ hoặc rỗng.
 - **`pid = -1` cho IDLE trong file**: UI mới chuyển thành chữ "IDLE" và ghép tiền tố "P".
 
 ### 5.4. Các điểm đã chốt theo `docs/api.md`
@@ -320,9 +347,9 @@ PriorityScheduling/
 ## 6. Kế hoạch kiểm thử độc lập
 
 - **Framework:** doctest (single header), đặt tại `tests/third_party/doctest.h`, thêm vào CMake bằng `target_include_directories`.
-- **Vị trí:** `tests/unit/csv/csv_handler_test.cpp`, chạy độc lập, không cần Qt hay scheduler.
+- **Vị trí:** unit test ở `tests/unit/csv/csv_handler_test.cpp` (chạy độc lập, không cần Qt hay scheduler); test đầu-cuối ở `tests/integration/ket_qua_test.cpp`.
 - **Điều kiện PR:** test xanh trước khi tạo PR vào `main`.
-- **Nghiệm thu:** chạy `samples/sample.csv` qua hai biến thể, so kết quả ghi ra khớp file chuẩn trong `tests/data/ket_qua/csv/`.
+- **Nghiệm thu:** chạy `sample.csv` qua hai biến thể, ghi 5 file rồi đọc lại và so **từng dòng** với file kỳ vọng trong `tests/data/ket_qua/leader/` (test đầu-cuối).
 
 Bảng kiểm thử (cột "Thực tế" được điền khi chạy test):
 
@@ -334,11 +361,14 @@ Bảng kiểm thử (cột "Thực tế" được điền khi chạy test):
 | IDLE | Gantt có đoạn `pid = -1` | File ghi đúng `-1`, không ghi chữ "IDLE" | Đạt |
 | Hòa (tie) | Hai tiến trình cùng priority và AT | Thứ tự dòng trong `vector` được giữ nguyên | Đạt |
 | Preemption | Gantt có cùng `pid` xuất hiện nhiều đoạn không liền nhau | Ghi đủ các đoạn đúng thứ tự, không gộp | Đạt |
-| Input lỗi | Thiếu / thừa cột | `false`, lỗi nêu đúng số dòng | Đạt |
-| Input lỗi | Giá trị không phải số | `false`, lỗi nêu đúng số dòng | Đạt |
-| Input lỗi | `burst <= 0`, `arrival < 0`, `pid <= 0` | `false`, lỗi nêu đúng số dòng | Đạt |
+| Input lỗi | Thiếu cột, thừa cột (hai case riêng) | `false`, lỗi nêu đúng số dòng và "cần 4 cột, có N" | Đạt |
+| Input lỗi | Giá trị không phải số, số thực | `false`, lỗi nêu đúng số dòng và tên cột | Đạt |
+| Input lỗi | `burst` âm, `burst` bằng 0, `arrival` âm, `pid <= 0` (mỗi lỗi một case riêng) | `false`, lỗi nêu đúng số dòng | Đạt |
 | Input lỗi | `pid` trùng | `false` | Đạt |
-| Input lỗi | File không tồn tại, file rỗng, chỉ có header | `false` | Đạt |
+| Input lỗi | File không tồn tại, file rỗng, chỉ có header, chỉ có dòng trống | `false` | Đạt |
+| Gom lỗi | File có nhiều dòng sai khác loại | Mỗi dòng sai đúng một dòng "Dòng N: ..." trong `error`; dòng hợp lệ không bị báo; đúng thứ tự dòng | Đạt |
+| Gom lỗi | Nhiều lỗi trong cùng một dòng; `pid` của dòng sai; dòng trống xen giữa; sai header; hơn 100 dòng sai | Một lỗi mỗi dòng; không báo trùng nhầm; số dòng vẫn đếm dòng trống; sai header chỉ báo header; giới hạn 100 dòng + "và N dòng lỗi khác" | Đạt |
+| Đầu-cuối | `sample.csv` và `sample_20.csv`: đọc, NP và P, ghi 5 file, đọc lại | Khớp file kỳ vọng từng dòng; thứ tự input được giữ; chạy lặp cho kết quả giống hệt; file sai thì dừng ở bước đọc | Đạt |
 | Đầu ra | `comparison.csv` | `metric,np,p`, làm tròn 2 chữ số (`5.67`, `10.33`, `3.00`) | Đạt |
 
 ## 7. Tiến độ
@@ -346,5 +376,8 @@ Bảng kiểm thử (cột "Thực tế" được điền khi chạy test):
 - [x] Nghiên cứu phần phụ trách, thiết kế giao diện, viết tài liệu (tuần này).
 - [x] Cập nhật tài liệu theo quy ước thống nhất của nhóm.
 - [x] Cài đặt `CsvHandler` (`src/io/CsvHandler.h`, `src/io/CsvHandler.cpp`).
-- [x] Viết test độc lập bằng doctest (44 test case, tất cả pass).
-- [ ] Chạy bộ test của Leader và tạo PR vào `main`.
+- [x] Viết test độc lập bằng doctest (unit test CSV, tất cả pass).
+- [x] Test đầu-cuối thật thay stub `CHECK(1 + 1 == 2)` (10 test case, so từng dòng với file kỳ vọng).
+- [x] Test biên: mỗi kiểu lỗi CSV một case riêng.
+- [x] Gom toàn bộ lỗi CSV theo dòng thay vì dừng ở lỗi đầu tiên.
+- [ ] Tạo PR để Hưng duyệt.
