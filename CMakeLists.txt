@@ -60,6 +60,14 @@ target_compile_options(PriorityScheduling PRIVATE ${PS_WARNINGS})
 # ---------------------------------------------------------------------------
 # Sinh dữ liệu benchmark: ./build/generate_perf [--out samples] [--sizes ...]
 # ---------------------------------------------------------------------------
+add_executable(benchmark_np tools/benchmark_np.cpp)
+target_link_libraries(benchmark_np PRIVATE ps_core)
+if(WIN32)
+    target_link_libraries(benchmark_np PRIVATE psapi)
+endif()
+target_compile_options(benchmark_np PRIVATE ${PS_WARNINGS})
+set_target_properties(benchmark_np PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+
 add_executable(generate_perf tools/generate_perf.cpp)
 target_compile_options(generate_perf PRIVATE ${PS_WARNINGS})
 set_target_properties(generate_perf PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
