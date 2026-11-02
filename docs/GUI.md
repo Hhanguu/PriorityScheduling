@@ -48,7 +48,8 @@ Chọn CSV
   -> Xuất CSV
 ```
 
-Khi đọc file lỗi, GUI hiển thị nguyên chuỗi `error` do `CsvHandler` trả về và giữ dữ liệu cũ.
+Khi đọc file lỗi, GUI hiển thị chuỗi `error` do `CsvHandler` trả về (rút gọn 10 dòng đầu nếu dài)
+và giữ dữ liệu cũ.
 Khi chưa có dữ liệu mà bấm chạy, GUI hiển thị cảnh báo và không gọi scheduler.
 
 ## 4. Quy ước hiển thị
@@ -58,7 +59,9 @@ Khi chưa có dữ liệu mà bấm chạy, GUI hiển thị cảnh báo và kh�
 - Ba giá trị trung bình hiển thị 2 chữ số sau dấu phẩy.
 - Thời gian dùng `long long`; widget Gantt phải giữ đúng kiểu này.
 - Không sắp xếp lại bảng input; giữ thứ tự dòng CSV.
-- Bảng chỉ hiển thị tối đa 10.000 dòng; CSV xuất vẫn đủ. Có nhãn cảnh báo khi bị cắt.
+- Bảng hiển thị đủ mọi dòng, không cắt: `tableInput`/`tableResult` là `QTableView` gắn
+  `ProcessTableModel` (model ảo, chỉ sinh ô đang nhìn thấy). Nhãn dưới bảng ghi tổng số dòng.
+- Hộp thoại lỗi CSV chỉ hiện 10 dòng đầu rồi thêm "… và N dòng lỗi khác" để không cao quá màn hình.
 - Gantt có nhiều đoạn hơn số pixel sẽ vẽ thu gọn theo từng cột pixel, tránh treo.
 
 ## 5. Xuất CSV

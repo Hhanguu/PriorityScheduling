@@ -9,6 +9,8 @@
 #include <QDir>
 #include <QFile>
 #include <QLabel>
+#include <QMap>
+#include <QTableView>
 #include <QTableWidget>
 #include <QTextStream>
 #include <QTemporaryDir>
@@ -26,8 +28,21 @@ QString readText(const QString &path) {
     return QString::fromUtf8(file.readAll());
 }
 
+// Bảng so sánh vẫn là QTableWidget (3 dòng cố định).
 QTableWidget *table(MainWindow &window, const char *name) {
     return window.findChild<QTableWidget *>(QString::fromLatin1(name));
+}
+
+// Hai bảng lớn dùng QTableView + model ảo, nên đọc ô qua model chứ không qua item.
+QTableView *view(MainWindow &window, const char *name) {
+    return window.findChild<QTableView *>(QString::fromLatin1(name));
+}
+
+QString cell(QTableView *tableView, int row, int column) {
+    if (tableView == nullptr || tableView->model() == nullptr) {
+        return {};
+    }
+    return tableView->model()->index(row, column).data().toString();
 }
 
 QLabel *label(MainWindow &window, const char *name) {
@@ -49,28 +64,30 @@ TEST_CASE("GUI nạp CSV và giữ đúng thứ tự") {
     REQUIRE(window.loadCsv(dataPath("gui/sample.csv"), &error));
     CHECK(error.isEmpty());
 
-    QTableWidget *input = table(window, "tableInput");
+    QTableView *input = view(window, "tableInput");
     REQUIRE(input != nullptr);
-    CHECK(input->rowCount() == 10);
-    CHECK(input->item(0, 0)->text() == "P1");
-    CHECK(input->item(0, 1)->text() == "0");
-    CHECK(input->item(0, 2)->text() == "5");
-    CHECK(input->item(0, 3)->text() == "3");
-    CHECK(input->item(9, 0)->text() == "P10");
+    REQUIRE(input->model() != nullptr);
+    CHECK(input->model()->rowCount() == 10);
+    CHECK(cell(input, 0, 0) == "P1");
+    CHECK(cell(input, 0, 1) == "0");
+    CHECK(cell(input, 0, 2) == "5");
+    CHECK(cell(input, 0, 3) == "3");
+    CHECK(cell(input, 9, 0) == "P10");
 }
 
 TEST_CASE("GUI báo lỗi CSV và giữ dữ liệu cũ") {
     MainWindow window;
     QString error;
     REQUIRE(window.loadCsv(dataPath("gui/sample.csv"), &error));
-    QTableWidget *input = table(window, "tableInput");
+    QTableView *input = view(window, "tableInput");
     REQUIRE(input != nullptr);
-    REQUIRE(input->rowCount() == 10);
+    REQUIRE(input->model() != nullptr);
+    REQUIRE(input->model()->rowCount() == 10);
 
     CHECK_FALSE(window.loadCsv(dataPath("gui/err_bad_header.csv"), &error));
     CHECK(error == QStringLiteral(
         "Dòng 1: header phải là pid,arrival,burst,priority"));
-    CHECK(input->rowCount() == 10);
+    CHECK(input->model()->rowCount() == 10);
 }
 
 TEST_CASE("GUI chạy hai thuật toán, hiện averages và so sánh") {
@@ -102,6 +119,51 @@ TEST_CASE("GUI chạy hai thuật toán, hiện averages và so sánh") {
     CHECK(label(window, "lblAvgWaiting")->text() == "Avg Waiting Time: 7.80");
     CHECK(label(window, "lblAvgTurnaround")->text() == "Avg Turnaround Time: 11.30");
     CHECK(label(window, "lblAvgResponse")->text() == "Avg Response Time: 5.30");
+}
+
+TEST_CASE("GUI bảng kết quả khớp file expected") {
+    MainWindow window;
+    QComboBox *mode = modeBox(window);
+    REQUIRE(mode != nullptr);
+    mode->setCurrentIndex(0);
+    QString error;
+    REQUIRE(window.loadCsv(dataPath("gui/sample.csv"), &error));
+    REQUIRE(window.runSchedules(&error));
+
+    // pid -> "arrival,burst,priority" từ file đầu vào, để kiểm 3 cột lấy từ input.
+    QMap<int, QStringList> inputRow;
+    const QStringList inputLines = readText(dataPath("gui/sample.csv")).split('\n', Qt::SkipEmptyParts);
+    for (int i = 1; i < inputLines.size(); ++i) {
+        const QStringList fields = inputLines.at(i).split(',');
+        if (fields.size() == 4) {
+            inputRow.insert(fields.at(0).toInt(),
+                            {fields.at(1), fields.at(2), fields.at(3)});
+        }
+    }
+
+    QTableView *result = view(window, "tableResult");
+    REQUIRE(result != nullptr);
+    REQUIRE(result->model() != nullptr);
+
+    const QStringList expected = readText(dataPath("ket_qua/gui/sample_np_result.csv"))
+                                     .split('\n', Qt::SkipEmptyParts);
+    REQUIRE(expected.size() > 1);
+    const int rows = expected.size() - 1;
+    REQUIRE(result->model()->rowCount() == rows);
+    for (int i = 0; i < rows; ++i) {
+        const QStringList fields = expected.at(i + 1).split(',');
+        REQUIRE(fields.size() == 5);
+        const int pid = fields.at(0).toInt();
+        CHECK(cell(result, i, 0) == QStringLiteral("P%1").arg(pid));
+        REQUIRE(inputRow.contains(pid));
+        CHECK(cell(result, i, 1) == inputRow.value(pid).at(0));
+        CHECK(cell(result, i, 2) == inputRow.value(pid).at(1));
+        CHECK(cell(result, i, 3) == inputRow.value(pid).at(2));
+        CHECK(cell(result, i, 4) == fields.at(1));
+        CHECK(cell(result, i, 5) == fields.at(2));
+        CHECK(cell(result, i, 6) == fields.at(3));
+        CHECK(cell(result, i, 7) == fields.at(4));
+    }
 }
 
 TEST_CASE("GUI xuất đủ 5 file và khớp expected") {
@@ -184,7 +246,7 @@ TEST_CASE("GUI chưa có dữ liệu thì không chạy scheduler") {
     CHECK_FALSE(window.hasResults());
 }
 
-TEST_CASE("GUI giới hạn bảng và vẽ Gantt thu gọn với 10k dòng") {
+TEST_CASE("GUI hiển thị đủ 10005 dòng và vẽ Gantt thu gọn") {
     QTemporaryDir temp;
     REQUIRE(temp.isValid());
     const QString csvPath = QDir(temp.path()).filePath("large.csv");
@@ -202,20 +264,23 @@ TEST_CASE("GUI giới hạn bảng và vẽ Gantt thu gọn với 10k dòng") {
     window.resize(1180, 900);
     QString error;
     REQUIRE(window.loadCsv(csvPath, &error));
-    QTableWidget *input = table(window, "tableInput");
+    QTableView *input = view(window, "tableInput");
     REQUIRE(input != nullptr);
-    CHECK(input->rowCount() == 10000);
+    REQUIRE(input->model() != nullptr);
+    // Không còn cắt ở 10.000 dòng: model phải giữ đủ toàn bộ file.
+    CHECK(input->model()->rowCount() == 10005);
+    CHECK(cell(input, 10004, 0) == "P10005");
 
-    QLabel *limit = label(window, "lblLimit");
-    REQUIRE(limit != nullptr);
-    CHECK_FALSE(limit->isHidden());
-    CHECK(limit->text().contains("10000/10005"));
+    QLabel *count = label(window, "lblLimit");
+    REQUIRE(count != nullptr);
+    CHECK_FALSE(count->isHidden());
+    CHECK(count->text() == "Đầu vào: 10.005 dòng");
 
     QComboBox *mode = modeBox(window);
     REQUIRE(mode != nullptr);
     mode->setCurrentIndex(0);
     REQUIRE(window.runSchedules(&error));
-    CHECK(table(window, "tableResult")->rowCount() == 10000);
+    CHECK(view(window, "tableResult")->model()->rowCount() == 10005);
     window.show();
     QApplication::processEvents();
 
@@ -237,7 +302,8 @@ TEST_CASE("GUI nạp được 500 tiến trình") {
     MainWindow window;
     QString error;
     REQUIRE(window.loadCsv(dataPath("gui/gui_large_500.csv"), &error));
-    QTableWidget *input = table(window, "tableInput");
+    QTableView *input = view(window, "tableInput");
     REQUIRE(input != nullptr);
-    CHECK(input->rowCount() == 500);
+    REQUIRE(input->model() != nullptr);
+    CHECK(input->model()->rowCount() == 500);
 }

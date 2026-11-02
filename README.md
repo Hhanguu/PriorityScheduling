@@ -171,8 +171,9 @@ chế độ chạy riêng chỉ ghi 2 file của thuật toán đó.
 `output/` đang có sẵn 5 file mẫu ứng với `input/sample.csv`:
 `np_result.csv`, `np_gantt.csv`, `p_result.csv`, `p_gantt.csv`, `comparison.csv`.
 
-Trong GUI, bảng chỉ hiển thị tối đa 10.000 dòng để không treo với dữ liệu lớn; file CSV xuất
-vẫn đủ toàn bộ. Gantt có nhiều đoạn hơn số pixel sẽ tự chuyển sang chế độ thu gọn.
+Bảng trong GUI hiển thị đủ mọi dòng của file, kể cả hàng triệu tiến trình: hai bảng dùng
+`QTableView` với model ảo nên chỉ dựng những ô đang nhìn thấy. Nhãn phía dưới cho biết tổng số
+dòng đầu vào và số dòng kết quả. Gantt có nhiều đoạn hơn số pixel sẽ tự chuyển sang chế độ thu gọn.
 
 Chọn **Chế độ chạy**:
 

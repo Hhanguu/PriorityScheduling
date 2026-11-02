@@ -10,7 +10,9 @@ class QComboBox;
 class QLabel;
 class QPushButton;
 class QTableWidget;
+class QTableView;
 class GanttChart;
+class ProcessTableModel;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -40,8 +42,7 @@ private:
     void updateComparisonTable();
     void updateAverages();
     void updateGantt();
-    void updateTableLimitNotice();
-    const Process *findInputProcess(int pid) const;
+    void updateRowCountLabel();
     const ScheduleResult &activeResult() const;
 
     QPushButton *btnOpen = nullptr;
@@ -50,9 +51,11 @@ private:
     QComboBox *comboMode = nullptr;
     QComboBox *comboAlgorithm = nullptr;
 
-    QTableWidget *tableInput = nullptr;
-    QTableWidget *tableResult = nullptr;
+    QTableView *tableInput = nullptr;
+    QTableView *tableResult = nullptr;
     QTableWidget *tableComparison = nullptr;
+    ProcessTableModel *inputModel = nullptr;
+    ProcessTableModel *resultModel = nullptr;
     GanttChart *ganttChart = nullptr;
 
     QLabel *lblLimit = nullptr;
