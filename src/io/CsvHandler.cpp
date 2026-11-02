@@ -16,6 +16,10 @@ const int kColumnCount = 4;
 // Chặn arrival/burst quá lớn để scheduler cộng dồn thời gian không bị tràn long long.
 const long long kMaxTime = 1000000000000LL;
 
+// File hỏng nặng có thể có hàng triệu dòng sai; chỉ liệt kê tối đa chừng này dòng đầu,
+// phần còn lại gộp thành một dòng "còn N dòng lỗi khác" để thông báo không phình to.
+const int kMaxReportedErrors = 100;
+
 // Cắt khoảng trắng và '\r' (file Windows) ở hai đầu chuỗi.
 std::string trim(const std::string& s) {
     const char* spaces = " \t\r\n";
@@ -52,6 +56,47 @@ bool parseInteger(const std::string& text, long long& value) {
     return r.ec == std::errc() && r.ptr == end;
 }
 
+// "Dòng N: lý do" - định dạng thông báo lỗi chung của module.
+std::string lineMessage(int lineNumber, const std::string& reason) {
+    return "Dòng " + std::to_string(lineNumber) + ": " + reason;
+}
+
+// Kiểm tra một dòng dữ liệu (không tính chuyện trùng pid, vì cần nhớ các dòng trước).
+// Hợp lệ: điền row và trả chuỗi rỗng. Sai: trả lý do của lỗi ĐẦU TIÊN trong dòng đó.
+std::string parseRow(const std::string& line, Process& row) {
+    const std::vector<std::string> fields = splitLine(line);
+    if (static_cast<int>(fields.size()) != kColumnCount) {
+        return "cần " + std::to_string(kColumnCount) + " cột, có " + std::to_string(fields.size());
+    }
+
+    long long values[kColumnCount];
+    for (int i = 0; i < kColumnCount; ++i) {
+        if (!parseInteger(fields[i], values[i])) {
+            return std::string(kFieldNames[i]) + " không phải số nguyên";
+        }
+    }
+    const long long pid = values[0];
+    const long long arrival = values[1];
+    const long long burst = values[2];
+    const long long priority = values[3];
+
+    if (pid <= 0 || pid > INT_MAX) {
+        return "pid phải trong khoảng 1 đến " + std::to_string(INT_MAX);
+    }
+    if (arrival < 0 || arrival > kMaxTime) {
+        return "arrival phải trong khoảng 0 đến " + std::to_string(kMaxTime);
+    }
+    if (burst <= 0 || burst > kMaxTime) {
+        return "burst phải trong khoảng 1 đến " + std::to_string(kMaxTime);
+    }
+    if (priority < INT_MIN || priority > INT_MAX) {
+        return "priority vượt quá phạm vi số nguyên 32 bit";
+    }
+
+    row = Process{static_cast<int>(pid), arrival, burst, static_cast<int>(priority)};
+    return "";
+}
+
 // Mở file nhị phân (cuối dòng luôn là '\n', kể cả trên Windows), gọi write(file), rồi kiểm tra lỗi.
 template <typename WriteFn>
 bool writeFile(const std::string& path, std::string& error, WriteFn write) {
@@ -85,26 +130,30 @@ bool CsvHandler::readProcesses(const std::string& path,
         return false;
     }
 
-    int lineNumber = 1;
-    auto fail = [&](const std::string& message) {
-        error = "Dòng " + std::to_string(lineNumber) + ": " + message;
-        return false;
-    };
-
+    // Sai header là lỗi nặng nhất: không biết các cột nghĩa là gì nên dừng luôn,
+    // không đọc tiếp các dòng sau.
+    const std::string headerError = lineMessage(1, std::string("header phải là ") + kHeader);
     std::string line;
     if (!std::getline(file, line)) {
-        return fail(std::string("header phải là ") + kHeader);
+        error = headerError;
+        return false;
     }
     if (line.compare(0, 3, "\xEF\xBB\xBF") == 0) {
         line.erase(0, 3); // BOM UTF-8 do Excel/Notepad thêm vào
     }
     static const std::vector<std::string> expectedHeader = splitLine(kHeader);
     if (splitLine(line) != expectedHeader) {
-        return fail(std::string("header phải là ") + kHeader);
+        error = headerError;
+        return false;
     }
 
+    // Từ đây đọc HẾT file: dòng nào sai thì ghi lại lý do rồi đọc tiếp,
+    // để người dùng thấy mọi lỗi một lần thay vì sửa từng lỗi một.
     std::unordered_set<int> seenPids;
     std::vector<Process> result;
+    std::string errors;
+    int errorCount = 0;
+    int lineNumber = 1;
 
     while (std::getline(file, line)) {
         ++lineNumber;
@@ -112,40 +161,33 @@ bool CsvHandler::readProcesses(const std::string& path,
             continue;
         }
 
-        const std::vector<std::string> fields = splitLine(line);
-        if (static_cast<int>(fields.size()) != kColumnCount) {
-            return fail("cần " + std::to_string(kColumnCount) + " cột, có " +
-                        std::to_string(fields.size()));
+        Process row{};
+        std::string problem = parseRow(line, row);
+        // Chỉ nhớ pid của dòng hợp lệ; dòng sai không được tính là đã "dùng" pid đó.
+        if (problem.empty() && !seenPids.insert(row.pid).second) {
+            problem = "pid " + std::to_string(row.pid) + " bị trùng";
         }
 
-        long long values[kColumnCount];
-        for (int i = 0; i < kColumnCount; ++i) {
-            if (!parseInteger(fields[i], values[i])) {
-                return fail(std::string(kFieldNames[i]) + " không phải số nguyên");
+        if (!problem.empty()) {
+            ++errorCount;
+            if (errorCount <= kMaxReportedErrors) {
+                if (!errors.empty()) {
+                    errors += '\n';
+                }
+                errors += lineMessage(lineNumber, problem);
             }
-        }
-        const long long pid = values[0];
-        const long long arrival = values[1];
-        const long long burst = values[2];
-        const long long priority = values[3];
-
-        if (pid <= 0 || pid > INT_MAX) {
-            return fail("pid phải trong khoảng 1 đến " + std::to_string(INT_MAX));
-        }
-        if (arrival < 0 || arrival > kMaxTime) {
-            return fail("arrival phải trong khoảng 0 đến " + std::to_string(kMaxTime));
-        }
-        if (burst <= 0 || burst > kMaxTime) {
-            return fail("burst phải trong khoảng 1 đến " + std::to_string(kMaxTime));
-        }
-        if (priority < INT_MIN || priority > INT_MAX) {
-            return fail("priority vượt quá phạm vi số nguyên 32 bit");
-        }
-        if (!seenPids.insert(static_cast<int>(pid)).second) {
-            return fail("pid " + std::to_string(pid) + " bị trùng");
+            continue;
         }
 
-        result.push_back(Process{static_cast<int>(pid), arrival, burst, static_cast<int>(priority)});
+        result.push_back(row);
+    }
+
+    if (errorCount > 0) {
+        if (errorCount > kMaxReportedErrors) {
+            errors += "\n... và " + std::to_string(errorCount - kMaxReportedErrors) + " dòng lỗi khác";
+        }
+        error = errors; // out vẫn rỗng: chỉ giao dữ liệu khi cả file hợp lệ
+        return false;
     }
 
     if (result.empty()) {
