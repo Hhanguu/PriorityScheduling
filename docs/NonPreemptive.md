@@ -210,16 +210,45 @@ Module không tự vẽ UI. Phần `ui/` sẽ nhận `ScheduleResult` để:
 
 ## 10. Benchmark hiệu năng
 
-Module Non-preemptive được phần `benchmark/` gọi với các bộ dữ liệu chuẩn của nhóm:
+Dữ liệu benchmark được sinh vào `input/perf_*.csv`, tên file chứa số tiến trình.
+Các file này không có sẵn trong Git; phải sinh trước khi đo. Không sử dụng các
+tên `perf_small.csv`, `perf_medium.csv`, `perf_large.csv`.
 
 | File | Số tiến trình |
 |---|---:|
-| `samples/sample.csv` | 3 |
-| `samples/perf_small.csv` | 20 |
-| `samples/perf_medium.csv` | 100 |
-| `samples/perf_large.csv` | 1000 |
+| `input/sample.csv` | 10 |
+| `input/sample_20.csv` | 20 |
+| `input/perf_1000000.csv` | 1.000.000 |
+| `input/perf_2000000.csv` | 2.000.000 |
 
-`benchmark/` đo thời gian chạy scheduler (ms); `Metrics` cung cấp WT/TAT/RT trung bình. Kết quả benchmark được lưu ở `report/` theo quy ước, không trộn với `output/` của chương trình.
+Chạy từ thư mục gốc repository, dùng bản **Release**. Ví dụ với MSYS2 UCRT64
+trên Windows (terminal đã có CMake, Ninja và compiler trong PATH):
+
+```powershell
+cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=C:/msys64/ucrt64/bin/g++.exe -DCMAKE_PREFIX_PATH=C:/msys64/ucrt64
+cmake --build build-release
+./build-release/generate_perf.exe --out input --seed 42 --sizes 1000000 2000000
+./build-release/benchmark_np.exe input/perf_1000000.csv 5
+./build-release/benchmark_np.exe input/perf_2000000.csv 5
+ctest --test-dir build-release --output-on-failure
+```
+
+Linux dùng cùng target CMake, bỏ các tham số đường dẫn Windows và đuôi `.exe`.
+
+`benchmark_np` đọc CSV một lần rồi đo tối thiểu 3 lần (mặc định 5). Đồng hồ
+`steady_clock` chỉ bao quanh `NonPreemptiveScheduler::schedule`, bao gồm cấp phát
+kết quả; không tính đọc CSV, Metrics, checksum, xuất kết quả hoặc hủy kết quả.
+CSV ra stdout ghi từng lần đo; stderr ghi trung bình, trung vị và peak RSS.
+Checksum bao phủ toàn bộ `processes` và `gantt`, dùng để đối chiếu trước/sau tối ưu.
+Peak RSS là đỉnh bộ nhớ **toàn tiến trình**, có cả đọc CSV, không phải bộ nhớ riêng
+của scheduler. Đơn vị MiB = 1.048.576 byte; không so trực tiếp với số MB chưa rõ
+phương pháp đo.
+
+Mục tiêu: NP 1M < 400 ms, 2M < 1.000 ms. Kết quả đo tại máy kiểm tra và dữ liệu
+từng lượt nằm trong [báo cáo tối ưu NP](../report/non-preemptive-optimization.md).
+Cần đo lại trên máy nghiệm thu với cùng compiler, Release và dữ liệu; không dùng
+thời gian Debug để so sánh. `Metrics::fillAverages` vẫn được nơi gọi thực hiện sau
+scheduler. Báo cáo đặt ở `report/`, không trộn với CSV kết quả ở `output/`.
 
 ---
 
