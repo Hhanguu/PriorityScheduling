@@ -87,79 +87,106 @@ flowchart TD
 ```text
 function schedule(processes):
     n = length(processes)
+    if n == 0: return empty result
     remaining = copy(BT)
     start = array of n giá trị -1
     result = array of n empty results
+    order = [0, 1, ..., n-1] stable_sort theo AT   # giữ thứ tự input khi AT bằng nhau
+    ready = min-heap rỗng                          # khóa: (priority, AT, thứ tự input)
     time = 0
+    next = 0
     completed = 0
     gantt = empty
 
     while completed < n:
-        best = none
+        # Nạp mọi tiến trình đã đến
+        while next < n and AT[order[next]] <= time:
+            ready.push(order[next])
+            next = next + 1
 
-        for i from 0 to n - 1:
-            if AT[i] <= time and remaining[i] > 0:
-                if best is none
-                   or (priority[i], AT[i], i) < (priority[best], AT[best], best):
-                    best = i
-
-        if best is none:
-            nextArrival = min AT[i] với remaining[i] > 0 và AT[i] > time
-            if nextArrival is none:
-                break
-            gantt.append_or_merge(IDLE, time, nextArrival)
-            time = nextArrival
+        # CPU rảnh: nhảy thẳng tới arrival gần nhất
+        if ready is empty:
+            if next == n: break
+            nextTime = AT[order[next]]
+            gantt.append_or_merge(IDLE, time, nextTime)
+            time = nextTime
             continue
 
-        if start[best] == -1:
-            start[best] = time
+        curr = ready.pop()
 
-        gantt.append_or_merge(pid[best], time, time + 1)
-        remaining[best] = remaining[best] - 1
-        time = time + 1
+        # Chạy tới sự kiện kế tiếp: hết burst hoặc bị ngắt
+        eventTime = time + remaining[curr]
 
-        if remaining[best] == 0:
-            CT[best] = time
-            TAT[best] = CT[best] - AT[best]
-            WT[best] = TAT[best] - BT[best]
-            RT[best] = start[best] - AT[best]
-            result[best] = (pid[best], CT[best], TAT[best], WT[best], RT[best])
+        while next < n and AT[order[next]] < eventTime:
+            a = order[next]
+            if priority[a] < priority[curr]:
+                eventTime = AT[a]              # ngắt tại đúng thời điểm arrival
+                break
+            ready.push(a)                      # priority >= curr: xếp hàng, không ngắt
+            next = next + 1
+
+        if start[curr] == -1:
+            start[curr] = time
+
+        remaining[curr] = remaining[curr] - (eventTime - time)
+        gantt.append_or_merge(pid[curr], time, eventTime)
+        time = eventTime
+
+        if remaining[curr] == 0:
+            CT[curr] = time
+            TAT[curr] = CT[curr] - AT[curr]
+            WT[curr] = TAT[curr] - BT[curr]
+            RT[curr] = start[curr] - AT[curr]
+            result[curr] = (pid[curr], CT[curr], TAT[curr], WT[curr], RT[curr])
             completed = completed + 1
+        else:
+            ready.push(curr)                   # bị ngắt, chờ lượt tiếp theo
 
     return result, gantt
 ```
 
 `RT` luôn tính từ lần chạy đầu tiên, không phải lần quay lại sau khi bị ngắt.
-Nếu priority bằng nhau, tiến trình đang chạy không bị ngắt.
+Nếu priority bằng nhau (hoặc arrival mới có priority lớn hơn), tiến trình đang chạy
+không bị ngắt. Điều kiện `AT < eventTime` đảm bảo arrival đúng biên không tạo đoạn
+Gantt 0 giây: tiến trình đó được nạp ở vòng lặp kế tiếp.
 
 ### 3.2. Flowchart
 
 ```mermaid
 flowchart TD
     A[Bắt đầu] --> B[Khởi tạo remaining, start = -1, time = 0]
-    B --> C{completed < n?}
+    B --> B2[Sắp xếp chỉ số theo AT, tạo min-heap ready]
+    B2 --> C{completed < n?}
     C -- Không --> Z[Trả ScheduleResult]
-    C -- Có --> D{Có tiến trình AT <= time và remaining > 0?}
-    D -- Có --> E[Chọn priority nhỏ nhất, rồi AT, rồi thứ tự input]
-    E --> F{start của tiến trình bằng -1?}
-    F -- Có --> G[Ghi start = time]
-    F -- Không --> H
-    G --> H[Ghi hoặc nối đoạn Gantt, remaining--, time++]
-    H --> I{remaining == 0?}
-    I -- Có --> J[Tính CT, TAT, WT, RT; completed++]
-    I -- Không --> C
-    J --> C
-    D -- Không --> K{Còn tiến trình chưa chạy?}
-    K -- Có --> L[Ghi IDLE tới AT gần nhất, time = AT]
+    C -- Có --> D[Nạp mọi arrival có AT <= time vào ready]
+    D --> E{ready rỗng?}
+    E -- Có --> K{Còn arrival chưa nạp?}
+    K -- Có --> L[Ghi/gộp IDLE tới AT gần nhất, time = AT]
     L --> C
     K -- Không --> Z
+    E -- Không --> F[curr = ready.pop; eventTime = time + remaining_curr]
+    F --> G{Arrival kế tiếp có AT < eventTime?}
+    G -- Có, priority nhỏ hơn --> H[eventTime = AT; ngắt curr]
+    G -- Có, priority >= curr --> I[Đẩy arrival vào ready; xét tiếp]
+    I --> G
+    G -- Không --> J{start_curr == -1?}
+    H --> J
+    J -- Có --> J2[Ghi start_curr = time]
+    J -- Không --> M
+    J2 --> M[remaining_curr -= eventTime - time; ghi/gộp Gantt; time = eventTime]
+    M --> N{remaining_curr == 0?}
+    N -- Có --> O[Tính CT, TAT, WT, RT; completed++]
+    N -- Không --> P[Đẩy curr lại ready]
+    O --> C
+    P --> C
 ```
 
 ### 3.3. Độ phức tạp và giới hạn
 
-- Thời gian: `O(n × T)`, với `T` là tổng thời gian chạy (`sum BT`); tương đương
-  `O(n² × B)` nếu mọi burst bị chặn bởi `B`.
-- Bộ nhớ: `O(n + g)`.
-- Cài đặt hiện tại chạy từng đơn vị thời gian và quét toàn bộ `n` tiến trình mỗi tick.
-  Vì vậy dữ liệu rất lớn sẽ chậm; muốn tối ưu cần heap theo priority hoặc mô phỏng
-  theo sự kiện. Đây là giới hạn cần nêu trong báo cáo benchmark.
+- Thời gian: `O(n log n + g)` — sắp xếp `O(n log n)`, mỗi tiến trình được đẩy/pop
+  heap `O(log n)`, mỗi đoạn Gantt ghi `O(1)`. Không phụ thuộc tổng burst `T`.
+- Bộ nhớ: `O(n + g)`, với `g` là số đoạn Gantt (kể cả IDLE).
+- Cài đặt hiện tại dùng `std::priority_queue` và **mô phỏng theo sự kiện**, không
+  quét lại danh sách mỗi tick. Đo thực tế (bản Debug): 100.000 tiến trình khoảng
+  0,3–0,5 giây; 500.000 tiến trình khoảng 2,8 giây. Có thể đo lại bằng
+  `benchmark_runner` (xem `docs/Preemptive.md` mục 7).
