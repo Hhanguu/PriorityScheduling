@@ -272,8 +272,13 @@ struct GanttBlock {
 class GanttChart : public QWidget {
 public:
     void setScheduleData(const QVector<GanttBlock>& blocks);
+    int contentWidth() const;   // số đoạn * 12 px, trần 1.000.000
 };
 ```
+
+`GanttChart` được đặt trong `QScrollArea` (`ganttScroll`, `widgetResizable(true)`, chỉ bật
+thanh kéo ngang). `contentWidth()` chính là chiều rộng tối thiểu của widget: nhiều đoạn hơn
+khung thì thanh kéo xuất hiện, ít đoạn thì widget vừa khung và không có thanh kéo.
 
 Hai bảng lớn (`tableInput`, `tableResult`) là `QTableView` gắn `ProcessTableModel`
 (`QAbstractTableModel` chỉ đọc). Model không giữ bản sao dữ liệu: nó đọc thẳng

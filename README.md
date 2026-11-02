@@ -12,7 +12,7 @@ xuất kết quả ra **CSV**. Giao diện desktop viết bằng **Qt6 Widgets**
 
 > Trạng thái: core CSV, Non-preemptive, Preemptive, GUI, integration test và benchmark đã
 > xong. `ctest` chạy 3 bộ (79 + 10 + 10 case) và pass toàn bộ; GUI hiển thị đủ file
-> 1.000.000 dòng. Việc còn lại: báo cáo cuối và video demo — xem [docs/plan.md](docs/plan.md).
+> 1.000.000 dòng. Việc còn lại: báo cáo cuối — xem [docs/plan.md](docs/plan.md).
 
 ## Công nghệ
 
@@ -172,7 +172,12 @@ chế độ chạy riêng chỉ ghi 2 file của thuật toán đó.
 
 Bảng trong GUI hiển thị đủ mọi dòng của file, kể cả hàng triệu tiến trình: hai bảng dùng
 `QTableView` với model ảo nên chỉ dựng những ô đang nhìn thấy. Nhãn phía dưới cho biết tổng số
-dòng đầu vào và số dòng kết quả. Gantt có nhiều đoạn hơn số pixel sẽ tự chuyển sang chế độ thu gọn.
+dòng đầu vào và số dòng kết quả.
+
+Gantt nằm trong khung cuộn ngang: mỗi đoạn giữ tối thiểu 12 px nên khi có hàng nghìn đoạn,
+khung sẽ rộng ra và hiện thanh kéo ở đáy — kéo sang phải để xem các đoạn sau thay vì bị dồn
+thành một vệt màu. Trục thời gian dưới thanh bar tự đánh mốc theo vùng đang nhìn thấy. Với
+dữ liệu quá lớn (trên ~1 triệu đoạn) widget chuyển sang chế độ vẽ thu gọn theo từng cột pixel.
 
 Chọn **Chế độ chạy**:
 
@@ -201,9 +206,9 @@ Hoặc chạy trực tiếp từng bộ test:
 - Unit test: `tests/unit/<thành viên>/` — expected vs actual cho case bình thường, IDLE, hòa điểm, preemption, input lỗi.
 - Preemptive: đủ P01–P18 (`tests/unit/preemptive/preemptive_test.cpp`), so từng đoạn Gantt, CT/TAT/WT/RT và averages với fixture trong `tests/data/ket_qua/preemptive/`.
 - Integration test: `tests/integration/` — pipeline `CSV → 2 scheduler → Metrics → ghi file`.
-- GUI test: `tests/gui/` — 10 test / 208 assertion, chạy headless qua `QT_QPA_PLATFORM=offscreen`.
+- GUI test: `tests/gui/` — 10 test / 215 assertion, chạy headless qua `QT_QPA_PLATFORM=offscreen`.
 - Tổng hiện tại: `unit_tests` 79 case / 112.207 assertion, `integration_tests` 10 / 318,
-  `gui_tests` 10 / 208 — `ctest` chạy 3/3 bộ, không skip.
+  `gui_tests` 10 / 215 — `ctest` chạy 3/3 bộ, không skip.
 - Benchmark: sinh dữ liệu bằng `./build/generate_perf`, đo bằng `./build/benchmark_runner <file.csv>`
   (preemptive) và `./build/benchmark_np <file.csv> [runs]` (non-preemptive). Bản Release trên
   i5-11400F: NP 100k = 13,7 ms, 1M = 242 ms, 2M = 577 ms; P 100k = 27 ms, 1M = 572 ms.

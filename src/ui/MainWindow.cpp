@@ -19,6 +19,7 @@
 #include <QLocale>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSplitter>
 #include <QStatusBar>
@@ -125,9 +126,19 @@ void MainWindow::setupUI() {
 
     auto *ganttGroup = new QGroupBox("Biểu đồ Gantt", splitter);
     auto *ganttLayout = new QVBoxLayout(ganttGroup);
-    ganttChart = new GanttChart(ganttGroup);
+    ganttScroll = new QScrollArea(ganttGroup);
+    ganttScroll->setObjectName("ganttScroll");
+    ganttScroll->setWidgetResizable(true);
+    ganttScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    ganttScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ganttScroll->setFrameShape(QFrame::NoFrame);
+    // Đủ chỗ cho thanh bar (150 px tối thiểu của GanttChart) + thanh kéo ngang,
+    // nếu không phần trục thời gian bên dưới sẽ bị cắt mất.
+    ganttScroll->setMinimumHeight(190);
+    ganttChart = new GanttChart(ganttScroll);
     ganttChart->setObjectName("ganttChart");
-    ganttLayout->addWidget(ganttChart);
+    ganttScroll->setWidget(ganttChart);
+    ganttLayout->addWidget(ganttScroll);
     splitter->addWidget(ganttGroup);
 
     auto *comparisonGroup = new QGroupBox("So sánh hai thuật toán", splitter);

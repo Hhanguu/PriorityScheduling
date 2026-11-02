@@ -17,8 +17,9 @@
 | U11 | Nạp `gui/gui_large_500.csv` | bảng 500 dòng, cuộn mượt, không treo | N |
 | U12 | Nạp `gui/sample_20.csv` | bảng 20 dòng, chạy NP/P ra Gantt có ngắt | C |
 | U13 | Bảng so sánh | số liệu khớp `ket_qua/gui/sample_comparison.csv` | C |
-| U14 | Nạp file 10.005 dòng | bảng hiện đủ 10.005 dòng (không cắt ở 10.000), cuộn tới dòng cuối vẫn mượt | N |
+| U14 | Nạp file 10.005 dòng | bảng hiện đủ 10.005 dòng (không cắt ở 10.000), cuộn tới dòng cuối vẫn mượt; Gantt có thanh kéo ngang (`contentWidth() == 120060`) | N |
 | U15 | Bảng kết quả NP của `sample.csv` | PID/AT/BT/Priority/CT/TAT/WT/RT khớp từng dòng `ket_qua/gui/sample_np_result.csv` | C |
+| U16 | Gantt với `sample.csv` (10 đoạn) | `contentWidth() == 120`, `ganttScroll` không hiện thanh kéo; kéo ngang chỉ xuất hiện khi nội dung rộng hơn khung | C |
 
 Lưu ý:
 

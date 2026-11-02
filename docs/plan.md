@@ -13,9 +13,9 @@ trên cùng dữ liệu CSV, có test, benchmark và tài liệu nghiệm thu.
 | 3 | Non-preemptive | scheduler, test N01–N12 | Xong (PR #38: 1M còn 242 ms) |
 | 4 | Preemptive | scheduler, test P01–P18 | Xong (PR #37: min-heap + event-based) |
 | 5 | GUI skeleton + tích hợp | `MainWindow`, `GanttChart`, test U01–U13 | Xong |
-| 6 | Hoàn thiện GUI | Gantt, bảng so sánh, xuất đủ 5 file | Xong (PR #40: bảng ảo, bỏ cắt 10.000 dòng) |
+| 6 | Hoàn thiện GUI | Gantt, bảng so sánh, xuất đủ 5 file | Xong (PR #40: bảng ảo, bỏ cắt 10.000 dòng, Gantt cuộn ngang) |
 | 7 | Benchmark, tối ưu | `benchmark_runner`, `benchmark_np`, `generate_perf`, `report/` | Xong |
-| 8 | Nghiệm thu, tài liệu, demo | `ctest`, README, báo cáo, video | Code xong; còn báo cáo cuối và video |
+| 8 | Nghiệm thu, tài liệu, demo | `ctest`, README, báo cáo, video | Code xong; còn báo cáo cuối |
 
 ## 2. Trạng thái hiện tại
 
@@ -56,13 +56,13 @@ GUI với file 1.000.000 dòng (offscreen 1180×900): nạp CSV 272 ms, chạy c
 |---|---|---|
 | `unit_tests` | 79 | 112.207 |
 | `integration_tests` | 10 | 318 |
-| `gui_tests` | 10 | 208 |
+| `gui_tests` | 10 | 215 |
 | `ctest` | 3/3 bộ pass | — |
 
 ## 3. Việc còn lại
 
-1. Review + merge PR #40 (GUI bỏ giới hạn 10.000 dòng).
-2. Báo cáo cuối và video demo.
+1. Review + merge PR #40 (GUI bỏ giới hạn 10.000 dòng, Gantt có thanh kéo ngang).
+2. Báo cáo cuối. Video demo đã có trong README; quay lại nếu muốn thể hiện thanh kéo Gantt.
 
 Đã xử lý trong cùng PR #40: `src/benchmark_main.cpp` không còn đường dẫn mặc định sai
 (in usage khi thiếu tham số), và `tests/unit/non-preemptive/np_edge_test.cpp` (N13–N18,

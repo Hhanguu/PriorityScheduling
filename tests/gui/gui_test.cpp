@@ -10,6 +10,8 @@
 #include <QFile>
 #include <QLabel>
 #include <QMap>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QTableView>
 #include <QTableWidget>
 #include <QTextStream>
@@ -112,6 +114,14 @@ TEST_CASE("GUI chạy hai thuật toán, hiện averages và so sánh") {
     CHECK(comparison->item(1, 2)->text() == "11.30");
     CHECK(comparison->item(2, 1)->text() == "8.00");
     CHECK(comparison->item(2, 2)->text() == "5.30");
+
+    // 10 đoạn thì không được có thanh kéo ngang: bảng phải vừa khung.
+    auto *gantt = window.findChild<GanttChart *>("ganttChart");
+    REQUIRE(gantt != nullptr);
+    CHECK(gantt->contentWidth() == 120);
+    auto *scroll = window.findChild<QScrollArea *>("ganttScroll");
+    REQUIRE(scroll != nullptr);
+    CHECK(scroll->horizontalScrollBar()->maximum() == 0);
 
     QComboBox *combo = algorithmBox(window);
     REQUIRE(combo != nullptr);
@@ -286,6 +296,14 @@ TEST_CASE("GUI hiển thị đủ 10005 dòng và vẽ Gantt thu gọn") {
 
     auto *gantt = window.findChild<GanttChart *>("ganttChart");
     REQUIRE(gantt != nullptr);
+
+    // 10.005 đoạn: mỗi đoạn giữ tối thiểu 12 px nên widget rộng hơn khung và
+    // QScrollArea phải có thanh kéo ngang.
+    CHECK(gantt->contentWidth() == 10005 * 12);
+    auto *scroll = window.findChild<QScrollArea *>("ganttScroll");
+    REQUIRE(scroll != nullptr);
+    CHECK(scroll->horizontalScrollBar()->maximum() > 0);
+
     const QImage image = gantt->grab().toImage();
     int colored = 0;
     for (int y = 0; y < image.height(); ++y) {

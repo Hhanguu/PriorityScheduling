@@ -9,6 +9,7 @@
 class QComboBox;
 class QLabel;
 class QPushButton;
+class QScrollArea;
 class QTableWidget;
 class QTableView;
 class GanttChart;
@@ -56,6 +57,7 @@ private:
     QTableWidget *tableComparison = nullptr;
     ProcessTableModel *inputModel = nullptr;
     ProcessTableModel *resultModel = nullptr;
+    QScrollArea *ganttScroll = nullptr;
     GanttChart *ganttChart = nullptr;
 
     QLabel *lblLimit = nullptr;
