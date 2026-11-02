@@ -54,7 +54,7 @@ GUI với file 1.000.000 dòng (offscreen 1180×900): nạp CSV 272 ms, chạy c
 
 | Bộ | Case | Assertion |
 |---|---|---|
-| `unit_tests` | 73 | 111.981 |
+| `unit_tests` | 79 | 112.207 |
 | `integration_tests` | 10 | 318 |
 | `gui_tests` | 10 | 208 |
 | `ctest` | 3/3 bộ pass | — |
@@ -63,11 +63,10 @@ GUI với file 1.000.000 dòng (offscreen 1180×900): nạp CSV 272 ms, chạy c
 
 1. Review + merge PR #40 (GUI bỏ giới hạn 10.000 dòng).
 2. Báo cáo cuối và video demo.
-3. Dọn hai chỗ nhỏ trong code:
-   - `src/benchmark_main.cpp` mặc định `samples/perf_100000.csv` — file không tồn tại;
-     nên đổi sang `input/perf_100000.csv` hoặc in usage.
-   - `tests/unit/non-preemptive/np_edge_test.cpp` (6 case biên, 226 assertion) đã viết và
-     pass nhưng chưa commit.
+
+Đã xử lý trong cùng PR #40: `src/benchmark_main.cpp` không còn đường dẫn mặc định sai
+(in usage khi thiếu tham số), và `tests/unit/non-preemptive/np_edge_test.cpp` (N13–N18,
+6 case / 226 assertion) đã được commit.
 
 ## 4. Điều kiện nghiệm thu
 

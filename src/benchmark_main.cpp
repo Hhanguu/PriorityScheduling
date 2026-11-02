@@ -4,13 +4,18 @@
 #include <chrono>
 
 int main(int argc, char** argv) {
-    std::string path = "samples/perf_100000.csv";
-    if (argc > 1) {
-        path = argv[1];
+    if (argc != 2) {
+        // No built-in default: benchmark data is generated, not committed, so any
+        // hard-coded path would point at a file that does not exist on a fresh clone.
+        std::cerr << "Usage: benchmark_runner <file.csv>\n"
+                     "  Generate input first: ./build/generate_perf --out input --sizes 100000\n"
+                     "  Then:                 ./build/benchmark_runner input/perf_100000.csv\n";
+        return 1;
     }
+
     std::vector<Process> processes;
     std::string error;
-    if (!CsvHandler::readProcesses(path, processes, error)) {
+    if (!CsvHandler::readProcesses(argv[1], processes, error)) {
         std::cerr << "Lỗi đọc file: " << error << "\n";
         return 1;
     }

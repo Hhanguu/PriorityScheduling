@@ -11,7 +11,7 @@ thời gian (CT, TAT, WT, RT), hiển thị bảng kết quả và **Gantt Chart
 xuất kết quả ra **CSV**. Giao diện desktop viết bằng **Qt6 Widgets** (không phải console / Web App).
 
 > Trạng thái: core CSV, Non-preemptive, Preemptive, GUI, integration test và benchmark đã
-> xong. `ctest` chạy 3 bộ (73 + 10 + 10 case) và pass toàn bộ; GUI hiển thị đủ file
+> xong. `ctest` chạy 3 bộ (79 + 10 + 10 case) và pass toàn bộ; GUI hiển thị đủ file
 > 1.000.000 dòng. Việc còn lại: báo cáo cuối và video demo — xem [docs/plan.md](docs/plan.md).
 
 ## Công nghệ
@@ -202,7 +202,7 @@ Hoặc chạy trực tiếp từng bộ test:
 - Preemptive: đủ P01–P18 (`tests/unit/preemptive/preemptive_test.cpp`), so từng đoạn Gantt, CT/TAT/WT/RT và averages với fixture trong `tests/data/ket_qua/preemptive/`.
 - Integration test: `tests/integration/` — pipeline `CSV → 2 scheduler → Metrics → ghi file`.
 - GUI test: `tests/gui/` — 10 test / 208 assertion, chạy headless qua `QT_QPA_PLATFORM=offscreen`.
-- Tổng hiện tại: `unit_tests` 73 case / 111.981 assertion, `integration_tests` 10 / 318,
+- Tổng hiện tại: `unit_tests` 79 case / 112.207 assertion, `integration_tests` 10 / 318,
   `gui_tests` 10 / 208 — `ctest` chạy 3/3 bộ, không skip.
 - Benchmark: sinh dữ liệu bằng `./build/generate_perf`, đo bằng `./build/benchmark_runner <file.csv>`
   (preemptive) và `./build/benchmark_np <file.csv> [runs]` (non-preemptive). Bản Release trên

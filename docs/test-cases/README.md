@@ -9,7 +9,7 @@ code sai, không phải test sai.
 | File | Người phụ trách | Case |
 |---|---|---|
 | [csv.md](csv.md) | Thành viên CSV | C01–C25 |
-| [non-preemptive.md](non-preemptive.md) | Thành viên NP | N01–N12 |
+| [non-preemptive.md](non-preemptive.md) | Thành viên NP | N01–N18 |
 | [preemptive.md](preemptive.md) | Thành viên P | P01–P18 |
 | [gui.md](gui.md) | Thành viên GUI | U01–U15, B01–B06 |
 | [leader.md](leader.md) | Leader | M01–M07, I01–I08, invariant |
@@ -21,7 +21,7 @@ code sai, không phải test sai.
 | Thư mục | Dùng cho |
 |---|---|
 | `tests/data/csv/` | C01–C25 |
-| `tests/data/non-preemptive/` | N01–N12 |
+| `tests/data/non-preemptive/` | N01–N12 (N13–N18 dựng input trong test) |
 | `tests/data/preemptive/` | P01–P18 |
 | `tests/data/gui/` | U01–U15 (U14/U15 sinh file tạm trong test) |
 | `tests/data/leader/` | input M01–M07, I01–I08 |

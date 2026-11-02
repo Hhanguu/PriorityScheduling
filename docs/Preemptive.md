@@ -211,7 +211,7 @@ Bất biến của module:
 ## 7. Tiến độ và kết quả
 - [x] Nghiên cứu thuật toán, hoàn thiện tài liệu và cập nhật đúng quy ước `conventions.md`.
 - [x] Cài đặt `PreemptiveScheduler.cpp` với ready queue là min-heap và mô phỏng theo sự kiện.
-- [x] Viết test P01–P18 bằng doctest, kiểm tra chi tiết Gantt và các chỉ số. Toàn bộ `unit_tests` hiện có 73 test case / 111.981 assertion, tất cả đều pass.
+- [x] Viết test P01–P18 bằng doctest, kiểm tra chi tiết Gantt và các chỉ số. Toàn bộ `unit_tests` hiện có 79 test case / 112.207 assertion, tất cả đều pass.
 - [x] Tối ưu hiệu năng (Release, i5-11400F): 100.000 tiến trình **27 ms** (trước tối ưu khoảng 311 giây), 200.000 = 64 ms, 500.000 = 242 ms, 1.000.000 = 572 ms. Kết quả Gantt và averages trùng khớp bản cũ ở sample, 1k, 10k, 30k.
 - [x] Giữ nguyên chữ ký `schedule()` và kết quả `sample.csv`: **7.80 / 11.30 / 5.30**.
 - [x] Tạo PR #37 (`feature/preemptive` → `main`).
