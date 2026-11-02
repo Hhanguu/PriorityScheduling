@@ -1,9 +1,9 @@
 # GUI module — Priority Scheduling
 
-**Phạm vi:** `src/main.cpp`, `src/ui/MainWindow.*`, `src/ui/GanttChart.*`
+**Phạm vi:** `src/main.cpp`, `src/ui/MainWindow.*`, `src/ui/GanttChart.*`, `src/ui/ProcessTableModel.*`
 **Công nghệ:** Qt6 Widgets, C++17
 **Trạng thái:** đã nối `QApplication` → `MainWindow` → `GanttChart`; chọn chạy riêng
-NP, riêng P hoặc cả hai, hiện averages/bảng so sánh và xuất file. Có 9 test GUI (96 assertion).
+NP, riêng P hoặc cả hai, hiện averages/bảng so sánh và xuất file. Có 10 test GUI (215 assertion).
 
 ## 1. Vai trò
 
@@ -22,7 +22,7 @@ GUI là lớp trình bày, không tự tính CT/TAT/WT/RT:
 |---|---|
 | `src/main.cpp` | Điểm vào ứng dụng; tạo `QApplication` và cửa sổ chính |
 | `src/ui/MainWindow.h/.cpp` | Toolbar, bảng input/result, nhãn averages, chọn thuật toán, đọc/ghi file |
-| `src/ui/GanttChart.h/.cpp` | Widget vẽ các đoạn Gantt từ dữ liệu đầu vào |
+| `src/ui/GanttChart.h/.cpp` | Widget vẽ các đoạn Gantt; nằm trong `QScrollArea` (`ganttScroll`) để cuộn ngang |
 
 `MainWindow` đang có:
 
@@ -48,7 +48,8 @@ Chọn CSV
   -> Xuất CSV
 ```
 
-Khi đọc file lỗi, GUI hiển thị nguyên chuỗi `error` do `CsvHandler` trả về và giữ dữ liệu cũ.
+Khi đọc file lỗi, GUI hiển thị chuỗi `error` do `CsvHandler` trả về (rút gọn 10 dòng đầu nếu dài)
+và giữ dữ liệu cũ.
 Khi chưa có dữ liệu mà bấm chạy, GUI hiển thị cảnh báo và không gọi scheduler.
 
 ## 4. Quy ước hiển thị
@@ -58,8 +59,17 @@ Khi chưa có dữ liệu mà bấm chạy, GUI hiển thị cảnh báo và kh�
 - Ba giá trị trung bình hiển thị 2 chữ số sau dấu phẩy.
 - Thời gian dùng `long long`; widget Gantt phải giữ đúng kiểu này.
 - Không sắp xếp lại bảng input; giữ thứ tự dòng CSV.
-- Bảng chỉ hiển thị tối đa 10.000 dòng; CSV xuất vẫn đủ. Có nhãn cảnh báo khi bị cắt.
-- Gantt có nhiều đoạn hơn số pixel sẽ vẽ thu gọn theo từng cột pixel, tránh treo.
+- Bảng hiển thị đủ mọi dòng, không cắt: `tableInput`/`tableResult` là `QTableView` gắn
+  `ProcessTableModel` (model ảo, chỉ sinh ô đang nhìn thấy). Nhãn dưới bảng ghi tổng số dòng.
+- Hộp thoại lỗi CSV chỉ hiện 10 dòng đầu rồi thêm "… và N dòng lỗi khác" để không cao quá màn hình.
+- Gantt đặt trong `QScrollArea` (`ganttScroll`): `widgetResizable(true)`, chỉ bật thanh kéo
+  ngang. `GanttChart::contentWidth()` = số đoạn × 12 px (trần 1.000.000 px — vừa giới hạn
+  widget của Qt, vừa đủ để không cuộn vô nghĩa). Nhiều đoạn hơn khung thì thanh kéo xuất hiện;
+  ít đoạn thì widget co lại vừa khung, không có thanh kéo.
+- Trục thời gian dưới thanh bar: đoạn đủ rộng thì ghi mốc ở hai đầu mỗi đoạn; đoạn hẹp thì
+  đánh mốc cách nhau ~110 px và chỉ vẽ mốc nằm trong vùng đang nhìn thấy.
+- Chỉ vẽ phần Gantt nằm trong `event->rect()`; khi cuộn, chi phí vẽ không tăng theo bề ngang
+  nội dung. Trên ~1 triệu đoạn, widget chuyển sang vẽ thu gọn theo từng cột pixel, tránh treo.
 
 ## 5. Xuất CSV
 
@@ -76,12 +86,15 @@ hiện `—` ở cột thuật toán chưa chạy.
 
 ## 6. Test GUI
 
-Đặc tả: `docs/test-cases/gui.md` (U01–U13, B01–B06).
+Đặc tả: `docs/test-cases/gui.md` (U01–U16, B01–B06).
 Dữ liệu: `tests/data/gui/`, kết quả chuẩn: `tests/data/ket_qua/gui/`.
 
-`tests/gui/gui_test.cpp` có 9 test / 96 assertion: nạp CSV, lỗi giữ dữ liệu cũ, chạy
-hai thuật toán, chạy riêng NP/P, averages/so sánh, xuất file khớp expected, input rỗng,
-file 500 dòng và giới hạn bảng/Gantt thu gọn với 10k dòng.
+`tests/gui/gui_test.cpp` có 10 test / 215 assertion: nạp CSV, lỗi giữ dữ liệu cũ, chạy
+hai thuật toán, chạy riêng NP/P, averages/so sánh, xuất file khớp expected, 8 cột bảng
+kết quả khớp `sample_np_result.csv`, input rỗng, file 500 dòng, và file 10.005 dòng hiển
+thị đủ (không cắt). Case 10.005 dòng cũng kiểm `contentWidth() == 120060` và thanh kéo
+ngang của `ganttScroll` phải có `maximum() > 0`; case `sample.csv` kiểm ngược lại là
+`contentWidth() == 120` và không có thanh kéo (bảng vừa khung).
 Chạy headless bằng `QT_QPA_PLATFORM=offscreen` hoặc qua `ctest` (đã đặt biến môi trường).
 
 ## 7. Build và chạy

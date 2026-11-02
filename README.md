@@ -10,10 +10,9 @@ Chương trình đọc danh sách tiến trình từ **CSV**, kiểm tra hợp l
 thời gian (CT, TAT, WT, RT), hiển thị bảng kết quả và **Gantt Chart trên màn hình**,
 xuất kết quả ra **CSV**. Giao diện desktop viết bằng **Qt6 Widgets** (không phải console / Web App).
 
-> Trạng thái: core CSV, Non-preemptive, Preemptive và GUI đã chạy được; GUI cho chọn
-> chạy riêng NP, riêng P hoặc cả hai. Preemptive đã đủ test P01–P18 và được tối ưu
-> (100.000 tiến trình ~0,4 giây, bản Debug). Integration test và báo cáo benchmark
-> trong `report/` vẫn còn thiếu. Xem [docs/plan.md](docs/plan.md).
+> Trạng thái: core CSV, Non-preemptive, Preemptive, GUI, integration test và benchmark đã
+> xong. `ctest` chạy 3 bộ (79 + 10 + 10 case) và pass toàn bộ; GUI hiển thị đủ file
+> 1.000.000 dòng. Việc còn lại: báo cáo cuối — xem [docs/plan.md](docs/plan.md).
 
 ## Công nghệ
 
@@ -38,7 +37,7 @@ tools/        generate_perf.cpp — sinh dữ liệu benchmark
 samples/      sample.csv, sample_20.csv
 input/        sample.csv, sample_20.csv
 output/       5 CSV kết quả mẫu
-report/       .gitkeep — chưa có báo cáo/benchmark
+report/       non-preemptive-optimization.md — báo cáo benchmark NP
 tests/
   unit/       csv, non-preemptive, preemptive, leader
   gui/        test GUI Qt (headless)
@@ -171,8 +170,14 @@ chế độ chạy riêng chỉ ghi 2 file của thuật toán đó.
 `output/` đang có sẵn 5 file mẫu ứng với `input/sample.csv`:
 `np_result.csv`, `np_gantt.csv`, `p_result.csv`, `p_gantt.csv`, `comparison.csv`.
 
-Trong GUI, bảng chỉ hiển thị tối đa 10.000 dòng để không treo với dữ liệu lớn; file CSV xuất
-vẫn đủ toàn bộ. Gantt có nhiều đoạn hơn số pixel sẽ tự chuyển sang chế độ thu gọn.
+Bảng trong GUI hiển thị đủ mọi dòng của file, kể cả hàng triệu tiến trình: hai bảng dùng
+`QTableView` với model ảo nên chỉ dựng những ô đang nhìn thấy. Nhãn phía dưới cho biết tổng số
+dòng đầu vào và số dòng kết quả.
+
+Gantt nằm trong khung cuộn ngang: mỗi đoạn giữ tối thiểu 12 px nên khi có hàng nghìn đoạn,
+khung sẽ rộng ra và hiện thanh kéo ở đáy — kéo sang phải để xem các đoạn sau thay vì bị dồn
+thành một vệt màu. Trục thời gian dưới thanh bar tự đánh mốc theo vùng đang nhìn thấy. Với
+dữ liệu quá lớn (trên ~1 triệu đoạn) widget chuyển sang chế độ vẽ thu gọn theo từng cột pixel.
 
 Chọn **Chế độ chạy**:
 
@@ -201,9 +206,13 @@ Hoặc chạy trực tiếp từng bộ test:
 - Unit test: `tests/unit/<thành viên>/` — expected vs actual cho case bình thường, IDLE, hòa điểm, preemption, input lỗi.
 - Preemptive: đủ P01–P18 (`tests/unit/preemptive/preemptive_test.cpp`), so từng đoạn Gantt, CT/TAT/WT/RT và averages với fixture trong `tests/data/ket_qua/preemptive/`.
 - Integration test: `tests/integration/` — pipeline `CSV → 2 scheduler → Metrics → ghi file`.
-- GUI test: `tests/gui/` — 9 test / 96 assertion, chạy headless qua `QT_QPA_PLATFORM=offscreen`.
-- Benchmark: sinh dữ liệu bằng `./build/generate_perf`, đo bằng `./build/benchmark_runner <file.csv>`.
-  Bản Debug hiện tại: 100.000 tiến trình ~0,4 giây; 500.000 tiến trình ~2,8 giây. Số liệu trong `report/` đang được bổ sung.
+- GUI test: `tests/gui/` — 10 test / 215 assertion, chạy headless qua `QT_QPA_PLATFORM=offscreen`.
+- Tổng hiện tại: `unit_tests` 79 case / 112.207 assertion, `integration_tests` 10 / 318,
+  `gui_tests` 10 / 215 — `ctest` chạy 3/3 bộ, không skip.
+- Benchmark: sinh dữ liệu bằng `./build/generate_perf`, đo bằng `./build/benchmark_runner <file.csv>`
+  (preemptive) và `./build/benchmark_np <file.csv> [runs]` (non-preemptive). Bản Release trên
+  i5-11400F: NP 100k = 13,7 ms, 1M = 242 ms, 2M = 577 ms; P 100k = 27 ms, 1M = 572 ms.
+  Chi tiết trong `report/non-preemptive-optimization.md` và mục 7 của `docs/Preemptive.md`.
 - Test cuối do Leader nghiệm thu: chạy `samples/sample.csv` qua cả hai thuật toán, đối chiếu `output/` với bảng chuẩn trong `docs/conventions.md`.
 
 ## Tài liệu và phân công
@@ -220,5 +229,6 @@ Hoặc chạy trực tiếp từng bộ test:
 | [docs/Preemptive.md](docs/Preemptive.md) | Thuật toán preemptive |
 | [docs/GUI.md](docs/GUI.md) | Giao diện Qt |
 
-Nhánh git: `feature/csv`, `feature/non-preemptive`, `feature/preemptive`, `feature/gui` → PR vào `main`.
+Nhánh git: `feature/csv`, `feature/non-preemptive`, `feature/preemptive`, `feature/gui` → PR vào `main`
+(đã merge qua PR #37–#39; PR #40 là bản sửa GUI sau merge).
 Mỗi thành viên commit đều đặn hằng tuần và ghi rõ nội dung commit (không để repository im 3 tuần liên tiếp).

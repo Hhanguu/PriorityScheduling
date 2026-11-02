@@ -244,8 +244,10 @@ Peak RSS là đỉnh bộ nhớ **toàn tiến trình**, có cả đọc CSV, kh
 của scheduler. Đơn vị MiB = 1.048.576 byte; không so trực tiếp với số MB chưa rõ
 phương pháp đo.
 
-Mục tiêu: NP 1M < 400 ms, 2M < 1.000 ms. Kết quả đo tại máy kiểm tra và dữ liệu
-từng lượt nằm trong [báo cáo tối ưu NP](../report/non-preemptive-optimization.md).
+Mục tiêu: NP 1M < 400 ms, 2M < 1.000 ms. Đo lại trên i5-11400F (Ubuntu, GCC 13.3,
+Release, 5 lượt): 100k = 13,7 ms, 1M = 242 ms, 2M = 577 ms — đạt cả hai mục tiêu.
+Số từng lượt trên máy Windows của người làm nằm trong
+[báo cáo tối ưu NP](../report/non-preemptive-optimization.md).
 Cần đo lại trên máy nghiệm thu với cùng compiler, Release và dữ liệu; không dùng
 thời gian Debug để so sánh. `Metrics::fillAverages` vẫn được nơi gọi thực hiện sau
 scheduler. Báo cáo đặt ở `report/`, không trộn với CSV kết quả ở `output/`.

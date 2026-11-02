@@ -232,41 +232,30 @@ average, tự format. Không truyền `Comparison` vào CSV.
 
 ---
 
-## 6. Benchmark — FROZEN
+## 6. Benchmark — chốt theo cài đặt thực tế
 
-```cpp
-// src/benchmark/Benchmark.h
-#pragma once
-#include <cstddef>
-#include <string>
-#include <vector>
-#include "core/Process.h"
+Bản thiết kế đầu tiên đề xuất `src/benchmark/Benchmark.*`. Khi làm, nhóm chốt dùng ba
+công cụ dòng lệnh độc lập, không thêm lớp `Benchmark` vào `ps_core`:
 
-struct BenchmarkResult {
-    std::string label;          // tên bộ dữ liệu, ví dụ "perf_medium"
-    std::size_t processCount;   // số tiến trình
-    double npMilliseconds;      // thời gian chạy NP
-    double pMilliseconds;       // thời gian chạy P
-};
+| Target | Source | Việc |
+|---|---|---|
+| `benchmark_runner` | `src/benchmark_main.cpp` | chỉ đo `PreemptiveScheduler::schedule`, in số tiến trình và ms |
+| `benchmark_np` | `tools/benchmark_np.cpp` | đo `NonPreemptiveScheduler::schedule` nhiều lượt, in `processes,run,milliseconds,peak_process_rss_mib,checksum` rồi mean/median |
+| `generate_perf` | `tools/generate_perf.cpp` | sinh `input/perf_<n>.csv` theo seed cố định |
 
-class Benchmark {
-public:
-    // Chạy cả 2 scheduler trên cùng input, đo bằng std::chrono::steady_clock.
-    static BenchmarkResult run(const std::string& label,
-                               const std::vector<Process>& processes);
-
-    // Ghi report/benchmark.csv
-    static bool writeReport(const std::string& path,
-                            const std::vector<BenchmarkResult>& results,
-                            std::string& error);
-};
+```bash
+./build/generate_perf                       # toàn bộ dãy kích thước
+./build/benchmark_runner input/perf_100000.csv
+./build/benchmark_np input/perf_1000000.csv 5
 ```
 
 - Không sửa scheduler, không tự tính lại CT/TAT/WT/RT.
 - Bộ kích thước: 1, 10, 50, 100, 150, 200, 500, 1.000, 5.000, 10.000, 50.000,
-  100.000, 500.000, 1.000.000 tiến trình (sinh bằng `tools/generate_perf.cpp`).
-- Đo tối thiểu 3 lần mỗi bộ, lấy trung bình (ghi rõ trong báo cáo).
-- Kết quả ghi `report/`, không trộn với `output/`.
+  100.000, 500.000, 1.000.000 tiến trình.
+- Đo tối thiểu 3 lần mỗi bộ rồi lấy trung bình. `benchmark_np` mặc định 5 lượt;
+  `benchmark_runner` đo 1 lượt nên phải chạy lại nhiều lần nếu cần trung bình.
+- Kết quả ghi `report/`, không trộn với `output/`. Báo cáo NP:
+  `report/non-preemptive-optimization.md`; số đo P: `docs/Preemptive.md` mục 7.
 
 ---
 
@@ -274,20 +263,33 @@ public:
 
 ```cpp
 // src/ui/GanttChart.h
-#pragma once
-#include <vector>
-#include "core/GanttSegment.h"
+struct GanttBlock {
+    int processId;          // -1 = IDLE
+    long long startTime;
+    long long endTime;
+};
 
-class GanttChart {
+class GanttChart : public QWidget {
 public:
-    void setData(const std::vector<GanttSegment>& segments);  // pid = -1 vẽ IDLE
+    void setScheduleData(const QVector<GanttBlock>& blocks);
+    int contentWidth() const;   // số đoạn * 12 px, trần 1.000.000
 };
 ```
+
+`GanttChart` được đặt trong `QScrollArea` (`ganttScroll`, `widgetResizable(true)`, chỉ bật
+thanh kéo ngang). `contentWidth()` chính là chiều rộng tối thiểu của widget: nhiều đoạn hơn
+khung thì thanh kéo xuất hiện, ít đoạn thì widget vừa khung và không có thanh kéo.
+
+Hai bảng lớn (`tableInput`, `tableResult`) là `QTableView` gắn `ProcessTableModel`
+(`QAbstractTableModel` chỉ đọc). Model không giữ bản sao dữ liệu: nó đọc thẳng
+`std::vector<Process>` và `ScheduleResult`, chỉ sinh chuỗi cho ô đang nhìn thấy, nên hiển
+thị được hàng triệu dòng. `tableComparison` vẫn là `QTableWidget` vì chỉ có 3 dòng.
 
 Trách nhiệm `MainWindow`:
 
 1. Chọn file → `CsvHandler::readProcesses`.
-2. Lỗi → hiện `error` ngay trên cửa sổ (không chỉ console), không crash.
+2. Lỗi → hiện `error` ngay trên cửa sổ (không chỉ console), không crash; nếu dài thì
+   rút gọn 10 dòng đầu.
 3. Chạy → 2 scheduler → `Metrics::fillAverages` → hiện bảng + Gantt.
 4. Xuất → `CsvHandler::write*` vào `output/`.
 5. Hiển thị pid dạng `"P" + pid`; IDLE hiện chữ `IDLE`.

@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "GanttChart.h"
+#include "ProcessTableModel.h"
 
 #include "core/Metrics.h"
 #include "core/NonPreemptiveScheduler.h"
@@ -18,19 +19,29 @@
 #include <QLocale>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QStringList>
+#include <QTableView>
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QVBoxLayout>
 
-#include <algorithm>
 #include <utility>
 
 namespace {
-constexpr int kMaxTableRows = 10000;
+// Hộp thoại lỗi CSV có thể chứa tới 100 dòng (CsvHandler gom mọi lỗi). Hiện
+// nguyên chuỗi sẽ cao quá màn hình, nên chỉ giữ vài dòng đầu và báo số còn lại.
+QString summarizeErrors(const QString &error, int maxLines = 10) {
+    const QStringList lines = error.split('\n');
+    if (lines.size() <= maxLines) {
+        return error;
+    }
+    return lines.mid(0, maxLines).join('\n') +
+           QString("\n… và %1 dòng lỗi khác.").arg(lines.size() - maxLines);
+}
 
 QString formatAverage(double value) {
     return QString::number(value, 'f', 2);
@@ -89,34 +100,45 @@ void MainWindow::setupUI() {
 
     auto *inputGroup = new QGroupBox("Danh sách tiến trình đầu vào", splitter);
     auto *inputLayout = new QVBoxLayout(inputGroup);
-    tableInput = new QTableWidget(inputGroup);
+    tableInput = new QTableView(inputGroup);
     tableInput->setObjectName("tableInput");
-    tableInput->setColumnCount(4);
-    tableInput->setHorizontalHeaderLabels({"PID", "Arrival Time", "Burst Time", "Priority"});
+    inputModel = new ProcessTableModel(ProcessTableModel::Kind::Input, tableInput);
+    tableInput->setModel(inputModel);
     tableInput->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     tableInput->setEditTriggers(QAbstractItemView::NoEditTriggers);
     tableInput->setSelectionBehavior(QAbstractItemView::SelectRows);
+    tableInput->setAlternatingRowColors(true);
     inputLayout->addWidget(tableInput);
     splitter->addWidget(inputGroup);
 
     auto *resultGroup = new QGroupBox("Kết quả thực thi chi tiết", splitter);
     auto *resultLayout = new QVBoxLayout(resultGroup);
-    tableResult = new QTableWidget(resultGroup);
+    tableResult = new QTableView(resultGroup);
     tableResult->setObjectName("tableResult");
-    tableResult->setColumnCount(8);
-    tableResult->setHorizontalHeaderLabels(
-        {"PID", "Arrival Time", "Burst Time", "Priority", "CT", "TAT", "WT", "RT"});
+    resultModel = new ProcessTableModel(ProcessTableModel::Kind::Result, tableResult);
+    tableResult->setModel(resultModel);
     tableResult->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     tableResult->setEditTriggers(QAbstractItemView::NoEditTriggers);
     tableResult->setSelectionBehavior(QAbstractItemView::SelectRows);
+    tableResult->setAlternatingRowColors(true);
     resultLayout->addWidget(tableResult);
     splitter->addWidget(resultGroup);
 
     auto *ganttGroup = new QGroupBox("Biểu đồ Gantt", splitter);
     auto *ganttLayout = new QVBoxLayout(ganttGroup);
-    ganttChart = new GanttChart(ganttGroup);
+    ganttScroll = new QScrollArea(ganttGroup);
+    ganttScroll->setObjectName("ganttScroll");
+    ganttScroll->setWidgetResizable(true);
+    ganttScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    ganttScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ganttScroll->setFrameShape(QFrame::NoFrame);
+    // Đủ chỗ cho thanh bar (150 px tối thiểu của GanttChart) + thanh kéo ngang,
+    // nếu không phần trục thời gian bên dưới sẽ bị cắt mất.
+    ganttScroll->setMinimumHeight(190);
+    ganttChart = new GanttChart(ganttScroll);
     ganttChart->setObjectName("ganttChart");
-    ganttLayout->addWidget(ganttChart);
+    ganttScroll->setWidget(ganttChart);
+    ganttLayout->addWidget(ganttScroll);
     splitter->addWidget(ganttGroup);
 
     auto *comparisonGroup = new QGroupBox("So sánh hai thuật toán", splitter);
@@ -144,7 +166,7 @@ void MainWindow::setupUI() {
 
     lblLimit = new QLabel(this);
     lblLimit->setObjectName("lblLimit");
-    lblLimit->setStyleSheet("color: #b36b00;");
+    lblLimit->setStyleSheet("color: #555555;");
     lblLimit->setVisible(false);
     mainLayout->addWidget(lblLimit);
 
@@ -191,7 +213,7 @@ void MainWindow::handleOpenFile() {
 
     QString error;
     if (!loadCsv(filePath, &error)) {
-        QMessageBox::critical(this, "Lỗi đọc file CSV", error);
+        QMessageBox::critical(this, "Lỗi đọc file CSV", summarizeErrors(error));
         return;
     }
 
@@ -279,7 +301,7 @@ void MainWindow::handleAlgorithmChanged(int index) {
     updateResultTable();
     updateAverages();
     updateGantt();
-    updateTableLimitNotice();
+    updateRowCountLabel();
 }
 
 void MainWindow::handleModeChanged(int index) {
@@ -312,7 +334,7 @@ void MainWindow::resetResults() {
     updateComparisonTable();
     updateAverages();
     updateGantt();
-    updateTableLimitNotice();
+    updateRowCountLabel();
 }
 
 bool MainWindow::loadCsv(const QString &path, QString *errorMessage) {
@@ -328,7 +350,7 @@ bool MainWindow::loadCsv(const QString &path, QString *errorMessage) {
     inputProcesses = std::move(loadedProcesses);
     resetResults();
     updateInputTable();
-    updateTableLimitNotice();
+    updateRowCountLabel();
     if (errorMessage != nullptr) {
         errorMessage->clear();
     }
@@ -433,43 +455,16 @@ void MainWindow::updateTables() {
     updateComparisonTable();
     updateAverages();
     updateGantt();
-    updateTableLimitNotice();
+    updateRowCountLabel();
 }
 
 void MainWindow::updateInputTable() {
-    const int visibleRows =
-        std::min(static_cast<int>(inputProcesses.size()), kMaxTableRows);
-    tableInput->setRowCount(visibleRows);
-    for (int i = 0; i < visibleRows; ++i) {
-        const Process &process = inputProcesses[static_cast<std::size_t>(i)];
-        tableInput->setItem(i, 0, readOnlyItem(QStringLiteral("P%1").arg(process.pid)));
-        tableInput->setItem(i, 1, readOnlyItem(QString::number(process.arrivalTime)));
-        tableInput->setItem(i, 2, readOnlyItem(QString::number(process.burstTime)));
-        tableInput->setItem(i, 3, readOnlyItem(QString::number(process.priority)));
-    }
+    inputModel->setInput(&inputProcesses);
 }
 
 void MainWindow::updateResultTable() {
     const ScheduleResult &result = activeResult();
-    const int visibleRows =
-        std::min(static_cast<int>(result.processes.size()), kMaxTableRows);
-    tableResult->setRowCount(visibleRows);
-    for (int i = 0; i < visibleRows; ++i) {
-        const ProcessResult &row = result.processes[static_cast<std::size_t>(i)];
-        const Process *input = findInputProcess(row.pid);
-        const long long arrival = input != nullptr ? input->arrivalTime : 0;
-        const long long burst = input != nullptr ? input->burstTime : 0;
-        const int priority = input != nullptr ? input->priority : 0;
-
-        tableResult->setItem(i, 0, readOnlyItem(QStringLiteral("P%1").arg(row.pid)));
-        tableResult->setItem(i, 1, readOnlyItem(QString::number(arrival)));
-        tableResult->setItem(i, 2, readOnlyItem(QString::number(burst)));
-        tableResult->setItem(i, 3, readOnlyItem(QString::number(priority)));
-        tableResult->setItem(i, 4, readOnlyItem(QString::number(row.completionTime)));
-        tableResult->setItem(i, 5, readOnlyItem(QString::number(row.turnaroundTime)));
-        tableResult->setItem(i, 6, readOnlyItem(QString::number(row.waitingTime)));
-        tableResult->setItem(i, 7, readOnlyItem(QString::number(row.responseTime)));
-    }
+    resultModel->setResult(&inputProcesses, &result);
 }
 
 void MainWindow::updateComparisonTable() {
@@ -508,38 +503,22 @@ void MainWindow::updateGantt() {
     ganttChart->setScheduleData(blocks);
 }
 
-void MainWindow::updateTableLimitNotice() {
-    QStringList notices;
-    if (inputProcesses.size() > static_cast<std::size_t>(kMaxTableRows)) {
-        notices << QString("input: %1/%2 dòng")
-                       .arg(kMaxTableRows)
-                       .arg(inputProcesses.size());
-    }
+void MainWindow::updateRowCountLabel() {
     const std::size_t resultRows = activeResult().processes.size();
-    if (resultRows > static_cast<std::size_t>(kMaxTableRows)) {
-        notices << QString("kết quả: %1/%2 dòng")
-                       .arg(kMaxTableRows)
-                       .arg(resultRows);
-    }
-
-    if (notices.isEmpty()) {
+    if (inputProcesses.empty()) {
         lblLimit->setVisible(false);
         return;
     }
 
-    lblLimit->setText(
-        QString("Bảng chỉ hiển thị %1; file CSV xuất vẫn đủ toàn bộ.")
-            .arg(notices.join(", ")));
-    lblLimit->setVisible(true);
-}
-
-const Process *MainWindow::findInputProcess(int pid) const {
-    for (const Process &process : inputProcesses) {
-        if (process.pid == pid) {
-            return &process;
-        }
+    QString text =
+        QString("Đầu vào: %1 dòng").arg(QLocale(QLocale::Vietnamese).toString(
+            static_cast<qlonglong>(inputProcesses.size())));
+    if (resultRows > 0) {
+        text += QString(" · Kết quả: %1 dòng").arg(
+            QLocale(QLocale::Vietnamese).toString(static_cast<qlonglong>(resultRows)));
     }
-    return nullptr;
+    lblLimit->setText(text);
+    lblLimit->setVisible(true);
 }
 
 const ScheduleResult &MainWindow::activeResult() const {

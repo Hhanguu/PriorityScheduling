@@ -93,6 +93,53 @@ File: `non-preemptive/sample_20.csv`
 - Khớp `ket_qua/non-preemptive/sample_20_np_result.csv` và `ket_qua/non-preemptive/sample_20_np_gantt.csv`
 - Trung bình: WT 21.50, TAT 25.50, RT 21.50
 
+## N13 — 40 process cùng AT 0, chỉ index phân định (N)
+
+Code: `tests/unit/non-preemptive/np_edge_test.cpp`, input dựng trong test.
+
+- 40 process, AT = 0, `priority = index % 4`, `pid = 40 - index`
+- Kỳ vọng: priority tăng dần, cùng priority thì index tăng dần; Gantt bắt đầu 0, kết thúc
+  bằng tổng burst, liền mạch, không IDLE
+- Bắt lỗi tie-break theo pid thay vì theo index. Cần đúng 40 phần tử vì `std::sort` chỉ
+  dùng insertion sort cho đoạn ≤ 16, và pid phải ngược chiều index thì hai cách tie-break
+  mới khác nhau
+
+## N14 — Đến đúng lúc CPU vừa xong (C)
+
+Input: `{1,0,5,5}, {2,5,1,1}`
+
+- Gantt `1[0-5] → 2[5-6]`, không sinh đoạn IDLE dài 0 ở t = 5
+- `processes[1]` có CT 6, WT 0, RT 0
+- Bắt lỗi: đổi điều kiện nạp ready queue từ `<=` thành `<`
+
+## N15 — Chuỗi đến sát nhau, không khe hở (C)
+
+Input: `{1,0,5,2}, {2,5,2,3}, {3,7,1,1}`
+
+- Gantt `1[0-5] → 2[5-7] → 3[7-8]`, phủ kín, mọi WT và RT bằng 0
+
+## N16 — Priority âm và hai đầu int (C)
+
+Input: `{1,0,1,INT_MIN}, {2,0,1,0}, {3,0,1,INT_MAX}`
+
+- Thứ tự `1 → 2 → 3`, không tràn khi so sánh
+- `{1,0,3,0}, {2,1,1,INT_MIN}`: process 2 priority rất thấp nhưng đến muộn vẫn không
+  được chen ngang → Gantt `1[0-3] → 2[3-4]`
+
+## N17 — IDLE dài 1e12 vẫn là một đoạn (N)
+
+Input: `{1, 1000000000000, 5, 0}` (đúng biên `kMaxTime` của `CsvHandler`)
+
+- Gantt `-1[0-1e12] → 1[1e12-1e12+5]`, không tràn `long long`
+- `processes[0]`: CT `1e12+5`, TAT 5, WT 0, RT 0
+
+## N18 — Nhiều khe IDLE, không IDLE thừa ở cuối (C)
+
+Input: `{1,0,2,1}, {2,1000000,1,1}, {3,2000000,3,1}`
+
+- Gantt `1[0-2] → -1[2-1e6] → 2[1e6-1000001] → -1[1000001-2e6] → 3[2e6-2000003]`
+- Gantt kết thúc đúng lúc process cuối xong, không kéo dài thêm
+
 ## Bất biến phải giữ
 
 - Kết quả giữ đúng thứ tự input.

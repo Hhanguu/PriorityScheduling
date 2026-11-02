@@ -52,6 +52,7 @@ add_executable(PriorityScheduling
     src/main.cpp
     src/ui/GanttChart.cpp
     src/ui/MainWindow.cpp
+    src/ui/ProcessTableModel.cpp
 )
 
 target_link_libraries(PriorityScheduling PRIVATE ps_core Qt6::Widgets)
@@ -115,6 +116,7 @@ if(BUILD_TESTING)
         tests/gui/gui_test.cpp
         src/ui/GanttChart.cpp
         src/ui/MainWindow.cpp
+        src/ui/ProcessTableModel.cpp
     )
     target_link_libraries(gui_tests PRIVATE ps_core Qt6::Widgets)
     target_include_directories(gui_tests PRIVATE

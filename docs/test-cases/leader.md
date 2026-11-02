@@ -46,7 +46,7 @@ kiểm tra mọi kết quả:
 ## 4. Checklist nghiệm thu cuối
 
 - [ ] Tất cả case `C` xanh
-- [ ] `ctest` chạy 2 bộ, không skip
+- [ ] `ctest` chạy 3 bộ (unit, integration, gui), không skip
 - [ ] Chạy `samples/sample.csv` ra đúng 4 file kết quả chuẩn
 - [ ] Không test nào ghi vào `output/`
 - [ ] Build không warning mới
