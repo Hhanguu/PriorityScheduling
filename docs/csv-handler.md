@@ -380,4 +380,4 @@ Bảng kiểm thử (cột "Thực tế" được điền khi chạy test):
 - [x] Test đầu-cuối thật thay stub `CHECK(1 + 1 == 2)` (10 test case, so từng dòng với file kỳ vọng).
 - [x] Test biên: mỗi kiểu lỗi CSV một case riêng.
 - [x] Gom toàn bộ lỗi CSV theo dòng thay vì dừng ở lỗi đầu tiên.
-- [ ] Tạo PR để Hưng duyệt.
+- [x] Tạo PR #39 (`feature/csv-e2e`) và merge vào `main`.

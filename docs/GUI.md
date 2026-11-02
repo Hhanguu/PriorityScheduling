@@ -1,9 +1,9 @@
 # GUI module — Priority Scheduling
 
-**Phạm vi:** `src/main.cpp`, `src/ui/MainWindow.*`, `src/ui/GanttChart.*`
+**Phạm vi:** `src/main.cpp`, `src/ui/MainWindow.*`, `src/ui/GanttChart.*`, `src/ui/ProcessTableModel.*`
 **Công nghệ:** Qt6 Widgets, C++17
 **Trạng thái:** đã nối `QApplication` → `MainWindow` → `GanttChart`; chọn chạy riêng
-NP, riêng P hoặc cả hai, hiện averages/bảng so sánh và xuất file. Có 9 test GUI (96 assertion).
+NP, riêng P hoặc cả hai, hiện averages/bảng so sánh và xuất file. Có 10 test GUI (208 assertion).
 
 ## 1. Vai trò
 
@@ -79,12 +79,13 @@ hiện `—` ở cột thuật toán chưa chạy.
 
 ## 6. Test GUI
 
-Đặc tả: `docs/test-cases/gui.md` (U01–U13, B01–B06).
+Đặc tả: `docs/test-cases/gui.md` (U01–U15, B01–B06).
 Dữ liệu: `tests/data/gui/`, kết quả chuẩn: `tests/data/ket_qua/gui/`.
 
-`tests/gui/gui_test.cpp` có 9 test / 96 assertion: nạp CSV, lỗi giữ dữ liệu cũ, chạy
-hai thuật toán, chạy riêng NP/P, averages/so sánh, xuất file khớp expected, input rỗng,
-file 500 dòng và giới hạn bảng/Gantt thu gọn với 10k dòng.
+`tests/gui/gui_test.cpp` có 10 test / 208 assertion: nạp CSV, lỗi giữ dữ liệu cũ, chạy
+hai thuật toán, chạy riêng NP/P, averages/so sánh, xuất file khớp expected, 8 cột bảng
+kết quả khớp `sample_np_result.csv`, input rỗng, file 500 dòng, và file 10.005 dòng hiển
+thị đủ (không cắt) kèm Gantt thu gọn.
 Chạy headless bằng `QT_QPA_PLATFORM=offscreen` hoặc qua `ctest` (đã đặt biến môi trường).
 
 ## 7. Build và chạy

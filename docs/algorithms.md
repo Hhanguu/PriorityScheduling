@@ -187,6 +187,7 @@ flowchart TD
   heap `O(log n)`, mỗi đoạn Gantt ghi `O(1)`. Không phụ thuộc tổng burst `T`.
 - Bộ nhớ: `O(n + g)`, với `g` là số đoạn Gantt (kể cả IDLE).
 - Cài đặt hiện tại dùng `std::priority_queue` và **mô phỏng theo sự kiện**, không
-  quét lại danh sách mỗi tick. Đo thực tế (bản Debug): 100.000 tiến trình khoảng
-  0,3–0,5 giây; 500.000 tiến trình khoảng 2,8 giây. Có thể đo lại bằng
-  `benchmark_runner` (xem `docs/Preemptive.md` mục 7).
+  quét lại danh sách mỗi tick. Đo thực tế (Release, i5-11400F): 100.000 tiến trình
+  27 ms; 200.000 = 64 ms; 500.000 = 242 ms; 1.000.000 = 572 ms. Bản quét tuần tự
+  cũ mất 311 giây cho 100.000. Đo lại bằng `benchmark_runner`
+  (xem `docs/Preemptive.md` mục 7).
