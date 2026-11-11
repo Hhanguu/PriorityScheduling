@@ -506,6 +506,27 @@ This project successfully implements and compares Non-preemptive and Preemptive 
 
 ## 9. Member Contributions
 
+### 9.1 Checkpoint 02 — Team Progress (Milestones)
+
+| Week | Workstream | Deliverables | Status |
+|---|---|---|---|
+| 1 | Project foundation | CMake, conventions, frozen API contract | Done |
+| 2 | CSV module | `CsvHandler`, CSV validation + unit tests (C01–C25) | Done |
+| 3 | Non-preemptive Priority | `NonPreemptiveScheduler` + tests (N01–N18) | Done |
+| 4 | Preemptive Priority | `PreemptiveScheduler` + tests (P01–P18) | Done |
+| 5 | GUI skeleton + integration | `MainWindow`, `GanttChart`, GUI wiring + tests (U01–U13) | Done |
+| 6 | GUI scalability | Virtual `QTableView` model for very large datasets + horizontal-scroll Gantt | Done (merge PR #40) |
+| 7 | Benchmark + report data | `benchmark_runner`, `benchmark_np`, `generate_perf`, performance logs | Done |
+| 8 | Verification + final docs | `ctest` suites, final report + demo reference | Code ready; report finalized |
+
+**Verification snapshot (at the time of this report):**
+- `ctest`: 3/3 suites passed
+- Unit tests: 79 test cases / 112,207 assertions
+- Integration tests: 10 test cases / 318 assertions
+- GUI tests: 10 test cases / 215 assertions
+
+### 9.2 Member Responsibility
+
 | Member | Module | Deliverables |
 |--------|--------|-------------|
 | Hưng (Leader) | Architecture, build, integration | `CMakeLists.txt`, `docs/api.md`, `docs/conventions.md`, integration tests (I01–I10), benchmark tools (`benchmark_np`, `generate_perf`), `report/non-preemptive-optimization.md` |
